@@ -1,2 +1,2 @@
 # EE4C07-Advanced-Computing-Systems
-Advanced Computing Systems Lab
+This repository contains the lab assignments of the TU Delft lab course *Advanced Computing Systems*
