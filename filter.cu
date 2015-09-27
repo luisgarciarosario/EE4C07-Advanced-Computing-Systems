@@ -64,14 +64,18 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 
 /////////////////////////////////////
 
-__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage, const unsigned int HISTOGRAM_SIZE)
+__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage)
 {
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	int i;
-	if (index < HISTOGRAM_SIZE)
-	for (i=0; i<width*height; i++)
-		if(grayImage[i] == index)
-			histogram[index]++;
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < width*height)
+		atomicAdd(&device_histogram[grayImage[index]],1);
+}
+
+__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage)
+{
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < width*height)
+		atomicAdd(&device_histogram[grayImage[index]],1);
 }
 
 
@@ -94,7 +98,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 	checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
 
 	kernelTime.start();
-	histogram1DCudaKernel<<<n/threadBlockSize, threadBlockSize>>>(width, height, device_histogram, grayImage, HISTOGRAM_SIZE);
+	histogram1DCudaKernel<<<n/threadBlockSize, threadBlockSize>>>(width, height, device_histogram, grayImage);
 	kernelTime.stop();
 	
 	checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
