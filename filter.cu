@@ -64,20 +64,76 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 
 /////////////////////////////////////
 
-/*
-__global__ void histogram1DCudaKernel
+__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage, const unsigned int HISTOGRAM_SIZE)
 {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int i;
+	if (index < HISTOGRAM_SIZE)
+	for (i=0; i<width*height; i++)
+		if(grayImage[i] == index)
+			histogram[index]++;
 }
-*/
 
-/*
-void histogram1DCuda
+
+
+void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
+				 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
+				 const unsigned int BAR_WIDTH) 
 {
+	int threadBlockSize = 256;
+	unsigned int max = 0;
+	NSTimer kernelTime = NSTimer("kernelTime", false, false);
+	
+	memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
+	int* device_histogram = NULL;
+   	checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE * sizeof(int)));
+  	if (device_histogram == NULL) {
+        	cout << "could not allocate memory!" << endl;
+       		return;
+    	}
+	checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
+
+	kernelTime.start();
+	histogram1DCudaKernel<<<n/threadBlockSize, threadBlockSize>>>(width, height, device_histogram, grayImage, HISTOGRAM_SIZE);
+	kernelTime.stop();
+	
+	checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
+	checkCudaCall(cudaFree(device_histogram));
+
+	for ( unsigned int i = 0; i < HISTOGRAM_SIZE; i++ ) 
+	{
+		if ( histogram[i] > max ) 
+		{
+			max = histogram[i];
+		}
+	}
+
+	for ( int x = 0; x < HISTOGRAM_SIZE * BAR_WIDTH; x += BAR_WIDTH ) 
+	{
+		unsigned int value = HISTOGRAM_SIZE - ((histogram[x / BAR_WIDTH] * HISTOGRAM_SIZE) / max);
+
+		for ( unsigned int y = 0; y < value; y++ ) 
+		{
+			for ( unsigned int i = 0; i < BAR_WIDTH; i++ ) 
+			{
+				histogramImage[(y * HISTOGRAM_SIZE * BAR_WIDTH) + x + i] = 0;
+			}
+		}
+		for ( unsigned int y = value; y < HISTOGRAM_SIZE; y++ ) 
+		{
+			for ( unsigned int i = 0; i < BAR_WIDTH; i++ ) 
+			{
+				histogramImage[(y * HISTOGRAM_SIZE * BAR_WIDTH) + x + i] = 255;
+			}
+		}
+	}
+	
+	cout << fixed << setprecision(6);
+	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-*/
 
 
-void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
+/*void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
 				 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
 				 const unsigned int BAR_WIDTH) 
 {
@@ -128,7 +184,7 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 	
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
-}
+}*/
 
 /////////////////////////////////////
 /*
