@@ -71,13 +71,6 @@ __global__ void histogram1DCudaKernel(const int width, const int height, unsigne
 		atomicAdd(&device_histogram[grayImage[index]],1);
 }
 
-__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage)
-{
-	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < width*height)
-		atomicAdd(&device_histogram[grayImage[index]],1);
-}
-
 
 
 void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
