@@ -84,7 +84,6 @@ int main(int argc, char *argv[])
 	// Contrast enhancement
 	//contrast1D(grayImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
 	contrast1DCuda(grayImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
-	//contrast1DCuda
 
 	if ( displayImages ) {
 		grayImage.display("Contrast Enhanced Image");
