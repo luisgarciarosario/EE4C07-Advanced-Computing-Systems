@@ -26,28 +26,16 @@ using std::setprecision;
 /*
 __global__ void rgb2grayCudaKernel (unsigned char *inputImage, unsigned char *grayImage, const int width, const int height)
 {
-    unsigned index cols= blockIdx.x * blockDim.x + threadIdx.x;
-	unsigned index rows = blockIdx.y * blockDim.y + threadIdx.y;
+        unsigned index x= blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned index y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	   kernel<<< rows<height , cols< width>>>;
-	   	kernelTime.start();
+	if（x<width && y<height ）
 
-        	for ( int rows = 0; rows < height; rows++ ) 
-	{
-		    for ( int cols = 0; cols < width; cols++ ) 
-		{
-			float grayPix = 0.0f;
-			float r = static_cast< float >(inputImage[(rows * width) + cols]);
-			float g = static_cast< float >(inputImage[(width * height) + (rows * width) + cols]);
-			float b = static_cast< float >(inputImage[(2 * width * height) + (rows * width) + cols]);
+	 float grayPix= (0.3f *static_cast< float >(inputImage[(y * width) + x])) + (0.59f * static_cast< float >(inputImage[(width * height) + (y * width) + x])) + (0.11f * static_cast< float >(inputImage[(2 * width * height) + (y * width) + x]))
+	
+	 grayImage[(y * width) + x] = static_cast< unsigned char >(grayPix);
 
-			grayPix = (0.3f * r) + (0.59f * g) + (0.11f * b);
-
-			grayImage[(rows * width) + cols] = static_cast< unsigned char >(grayPix);
-		}
-	}
-	   	kernelTime.stop();
-	// /Kernel
+	// Kernel
 */
 
 /*
