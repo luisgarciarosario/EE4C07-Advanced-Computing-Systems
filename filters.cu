@@ -15,7 +15,8 @@ using std::setprecision;
    And to check the result of a kernel invocation:
    checkCudaCall(cudaGetLastError());
 */
-/*#define checkCudaCall(result) {                                     \
+/*
+#define checkCudaCall(result) {                                     \
     if (result != cudaSuccess){                                     \
         cerr << "cuda error: " << cudaGetErrorString(result);       \
         cerr << " in " << __FILE__ << " at line "<< __LINE__<<endl; \
@@ -23,13 +24,15 @@ using std::setprecision;
     }                                                               \
 }
 */
-
+///*
 static void checkCudaCall(cudaError_t result) {
     if (result != cudaSuccess) {
         cerr << "cuda error: " << cudaGetErrorString(result) << endl;
         exit(1);
     }
 }
+//*/
+
 
 
 __global__ void rgb2grayCudaKernel (unsigned char *grayPix, const int width, const int height)
@@ -230,9 +233,9 @@ __global__ void contrast1DKernel(unsigned char *grayImage, const int width, cons
   if(index < grayImageSize)
    {
 
-       //printf("index:%d \n",index);     //print works
+   
 	unsigned char pixel = grayImage[index];
-  
+
          if ( pixel < min )
         {
         	pixel = 0;
@@ -247,6 +250,7 @@ __global__ void contrast1DKernel(unsigned char *grayImage, const int width, cons
         }
                       
         grayImage[index] =  pixel;
+   
    } 
   
 
