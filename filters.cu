@@ -37,42 +37,54 @@ static void checkCudaCall(cudaError_t result) {
 
 
 
-__global__ void rgb2grayCudaKernel (unsigned char *grayPix, const int width, const int height)
+__global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, const int width, const int height)
 {
         unsigned index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	unsigned index_y = blockIdx.y * blockDim.y + threadIdx.y;
+        unsigned index_y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	if（index_x<width && index_y<height）
-	grayPix[(index_y * width) + index_x] = static_cast< unsigned char > ((0.3f *static_cast< float >(inputImage[(index_y * width) + index_x])) + (0.59f * static_cast< float >(inputImage[(width * height) + (index_y * width) + index_x])) + (0.11f * static_cast< float >(inputImage[(2 * width * height) + (index_y * width) + index_x])));
-	
-}
+    if(index_x<width && index_y<height)
+
+           {
+                      float grayPix = 0.0f;
+                      float r = static_cast< float >(d_inputImage[(index_y * width) + index_x]);
+                      float g = static_cast< float >(d_inputImage[(width * height) + (index_y * width) + index_x]);
+                      float b = static_cast< float >(d_inputImage[(2 * width * height) + (index_y * width) + index_x]);
+                      grayPix = (0.3f * r) + (0.59f * g) + (0.11f * b);
+                      d_grayImage[(index_y * width) + index_x] = static_cast< unsigned char >(grayPix);
+        }
+   }
 
 
-void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height) 
+
+void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height)
 {
-  	int threadBlockSize = 256;
-	NSTimer kernelTime = NSTimer("kernelTime", false, false);
-	memset(reinterpret_cast< void * >(grayImage), 0, width * height * sizeof(unsigned char));
-	char* grayPix = NULL;
- 	checkCudaCall(cudaMalloc((void **) &grayPix, (width*heigth) * sizeof(unsigned char)));
-  	if (grayPix == NULL) {
-      	  cout << "could not allocate memory!" << endl;
-     	  return;
-            }
-	checkCudaCall(cudaMemcpy(grayPix, grayImage, width * height * sizeof(unsigned char), cudaMemcpyHostToDevice));
-	kernelTime.start();
-	dim3 dimBlock (16, 16);
-	dim3 dimGrid (n/dimBlock.x, n/dimBlock.y)
-  	rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(grayPix, width, height);
-	cudaDeviceSynchronize();
-	kernelTime.stop();
-	checkCudaCall(cudaGetLastError());
 
-	checkCudaCall(cudaMemcpy(grayImage, grayPix, width * height * sizeof(unsigned char), cudaMemcpyHostToDevice));
-	checkCudaCall(cudaFree(grayPix)); 
-	cout << fixed << setprecision(6);
-	cout << "rgb2gray (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+        NSTimer kernelTime = NSTimer("kernelTime", false, false);
+        memset(reinterpret_cast< void * >(grayImage), 0, width * height * sizeof(unsigned char));
+
+        unsigned char* d_grayImage= NULL;
+        unsigned char* d_inputImage= NULL;
+        checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*width*height) ));
+        checkCudaCall(cudaMalloc((void **) &d_grayImage, width*height));
+        checkCudaCall(cudaMemcpy(d_grayImage, grayImage, width * height, cudaMemcpyHostToDevice));
+        checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*width * height, cudaMemcpyHostToDevice));
+
+        kernelTime.start();
+        dim3 dimBlock(512, 512);
+        dim3 dimGrid(width/(int)dimBlock.x+1, height/(int)dimBlock.y+1);
+        rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, width, height);
+        cudaDeviceSynchronize();
+        kernelTime.stop();
+
+        checkCudaCall(cudaMemcpy(grayImage, d_grayImage, width * height, cudaMemcpyDeviceToHost));
+        checkCudaCall(cudaFree(d_grayImage));
+        checkCudaCall(cudaFree(d_inputImage));
+
+
+        cout << fixed << setprecision(6);
+        cout << "rgb2gray (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
+
 /*
 void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height) 
 {
@@ -102,75 +114,78 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 }
 */
 /////////////////////////////////////
-/*
-__global__ void histogram1DCudaKernel(const int width, const int height, unsigned int *device_histogram, unsigned char *grayImage)
+
+__global__ void histogram1DCudaKernel(int ImageSize, unsigned int *device_histogram, unsigned char *d_grayImage)
 {
-	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < width*height)
-		atomicAdd(&device_histogram[grayImage[index]],1);
+        unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+        if (index < ImageSize)
+        {
+                unsigned char Item = d_grayImage[index];
+                atomicAdd (&(device_histogram[Item]), 1);
+        }
 }
 
 
 
-void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
-				 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
-				 const unsigned int BAR_WIDTH) 
+void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height,
+                                 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE,
+                                 const unsigned int BAR_WIDTH)
 {
-	int threadBlockSize = 256;
-	unsigned int max = 0;
-	NSTimer kernelTime = NSTimer("kernelTime", false, false);
-	
-	memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
-	int* device_histogram = NULL;
-   	checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE * sizeof(unsigned int)));
-  	if (device_histogram == NULL) {
-        	cout << "could not allocate memory!" << endl;
-       		return;
-    	}
-	checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
+        dim3 threadBlockSize(512);
+        unsigned int max = 0;
+        int ImageSize = width * height;
+        NSTimer kernelTime = NSTimer("kernelTime", false, false);
 
-	kernelTime.start();
-	histogram1DCudaKernel<<<n/threadBlockSize, threadBlockSize>>>(width, height, device_histogram, grayImage);
-	cudaDeviceSynchronize();
-	kernelTime.stop();
-	checkCudaCall(cudaGetLastError());
-	
-	checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE*sizeof(int), cudaMemcpyHostToDevice));
-	checkCudaCall(cudaFree(device_histogram));
+        memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
+        unsigned int* device_histogram = NULL;
+        checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE));
+        checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE, cudaMemcpyHostToDevice));
+        unsigned char* d_grayImage = NULL;
+        checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
+        checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
 
-	for ( unsigned int i = 0; i < HISTOGRAM_SIZE; i++ ) 
+        kernelTime.start();
+        dim3 BlockNum(width*height/threadBlockSize.x+1);
+        histogram1DCudaKernel<<<BlockNum, threadBlockSize>>>(ImageSize, device_histogram, d_grayImage);
+        cudaDeviceSynchronize();
+        kernelTime.stop();
+
+        checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE, cudaMemcpyDeviceToHost));
+        checkCudaCall(cudaFree(device_histogram));
+
+	for ( unsigned int i = 0; i < HISTOGRAM_SIZE; i++ )
 	{
-		if ( histogram[i] > max ) 
+		if ( histogram[i] > max )
 		{
 			max = histogram[i];
 		}
 	}
 
-	for ( int x = 0; x < HISTOGRAM_SIZE * BAR_WIDTH; x += BAR_WIDTH ) 
+	for ( int x = 0; x < HISTOGRAM_SIZE * BAR_WIDTH; x += BAR_WIDTH )
 	{
 		unsigned int value = HISTOGRAM_SIZE - ((histogram[x / BAR_WIDTH] * HISTOGRAM_SIZE) / max);
 
-		for ( unsigned int y = 0; y < value; y++ ) 
+		for ( unsigned int y = 0; y < value; y++ )
 		{
-			for ( unsigned int i = 0; i < BAR_WIDTH; i++ ) 
+			for ( unsigned int i = 0; i < BAR_WIDTH; i++ )
 			{
 				histogramImage[(y * HISTOGRAM_SIZE * BAR_WIDTH) + x + i] = 0;
 			}
 		}
-		for ( unsigned int y = value; y < HISTOGRAM_SIZE; y++ ) 
+		for ( unsigned int y = value; y < HISTOGRAM_SIZE; y++ )
 		{
-			for ( unsigned int i = 0; i < BAR_WIDTH; i++ ) 
+			for ( unsigned int i = 0; i < BAR_WIDTH; i++ )
 			{
 				histogramImage[(y * HISTOGRAM_SIZE * BAR_WIDTH) + x + i] = 255;
 			}
 		}
 	}
-	
+
 	cout << fixed << setprecision(6);
-	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	cout << "histogram1D (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
 
-*/
+/*
 void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
 				 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
 				 const unsigned int BAR_WIDTH) 
@@ -223,7 +238,7 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-
+*/
 /////////////////////////////////////
 __global__ void contrast1DKernel(unsigned char *grayImage, const int width, const int height,int min, int max, int diff, int grayImageSize) 
 {
