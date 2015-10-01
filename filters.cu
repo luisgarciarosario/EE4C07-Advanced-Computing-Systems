@@ -138,8 +138,8 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 
         memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
         unsigned int* device_histogram = NULL;
-        checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE));
-        checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE, cudaMemcpyHostToDevice));
+        checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int)));
+        checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyHostToDevice));
         unsigned char* d_grayImage = NULL;
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
@@ -150,7 +150,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
         cudaDeviceSynchronize();
         kernelTime.stop();
 
-        checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE, cudaMemcpyDeviceToHost));
+        checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyDeviceToHost));
         checkCudaCall(cudaFree(device_histogram));
 
 	for ( unsigned int i = 0; i < HISTOGRAM_SIZE; i++ )
