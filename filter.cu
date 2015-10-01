@@ -48,7 +48,9 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
             }
 	checkCudaCall(cudaMemcpy(grayPix, grayImage, width * height * sizeof(unsigned char), cudaMemcpyHostToDevice));
 	kernelTime.start();
-  	rgb2grayCudaKernel<16><<<n/threadBlockSize, threadBlockSize>>>(grayPix, width, height);
+	dim3 dimBlock (16, 16);
+	dim3 dimGrid (n/dimBlock.x, n/dimBlock.y)
+  	rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(grayPix, width, height);
 	cudaDeviceSynchronize();
 	kernelTime.stop();
 	checkCudaCall(cudaGetLastError());
