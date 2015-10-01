@@ -24,6 +24,8 @@ const float filter[] = {	1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
 						1.0f, 2.0f, 2.0f, 2.0f, 1.0f, 
 						1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 
+
+
 extern void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height);
 //extern void rgb2grayCuda
 

@@ -25,6 +25,8 @@ using std::setprecision;
 }
 */
 ///*
+
+
 static void checkCudaCall(cudaError_t result) {
     if (result != cudaSuccess) {
         cerr << "cuda error: " << cudaGetErrorString(result) << endl;
