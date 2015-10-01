@@ -85,7 +85,6 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         cout << "rgb2gray (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
 
-/*
 void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height) 
 {
 	NSTimer kernelTime = NSTimer("kernelTime", false, false);
@@ -112,7 +111,6 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 	cout << fixed << setprecision(6);
 	cout << "rgb2gray (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-*/
 /////////////////////////////////////
 
 __global__ void histogram1DCudaKernel(int ImageSize, unsigned int *device_histogram, unsigned char *d_grayImage)
@@ -185,7 +183,6 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 	cout << "histogram1D (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
 
-/*
 void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
 				 unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
 				 const unsigned int BAR_WIDTH) 
@@ -238,7 +235,6 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-*/
 /////////////////////////////////////
 __global__ void contrast1DKernel(unsigned char *grayImage, const int width, const int height,int min, int max, int diff, int grayImageSize) 
 {
