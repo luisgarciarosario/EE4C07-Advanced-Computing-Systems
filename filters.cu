@@ -24,7 +24,6 @@ using std::setprecision;
     }                                                               \
 }
 */
-///*
 
 
 static void checkCudaCall(cudaError_t result) {
@@ -33,24 +32,22 @@ static void checkCudaCall(cudaError_t result) {
         exit(1);
     }
 }
-//*/
 
 
 
-__global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, const int width, const int height)
+__global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, int ImageSize)
 {
-        unsigned index_x = blockIdx.x * blockDim.x + threadIdx.x;
-        unsigned index_y = blockIdx.y * blockDim.y + threadIdx.y;
-
-    if(index_x<width && index_y<height)
+        unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
+        
+	if(index < ImageSize)
 
            {
                       float grayPix = 0.0f;
-                      float r = static_cast< float >(d_inputImage[(index_y * width) + index_x]);
-                      float g = static_cast< float >(d_inputImage[(width * height) + (index_y * width) + index_x]);
-                      float b = static_cast< float >(d_inputImage[(2 * width * height) + (index_y * width) + index_x]);
+                      float r = static_cast< float >(d_inputImage[index]);
+                      float g = static_cast< float >(d_inputImage[ImageSize + index]);
+                      float b = static_cast< float >(d_inputImage[(2 * ImageSize) + index]);
                       grayPix = (0.3f * r) + (0.59f * g) + (0.11f * b);
-                      d_grayImage[(index_y * width) + index_x] = static_cast< unsigned char >(grayPix);
+                      d_grayImage[index] = static_cast< unsigned char >(grayPix);
         }
    }
 
@@ -64,19 +61,20 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 
         unsigned char* d_grayImage= NULL;
         unsigned char* d_inputImage= NULL;
-        checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*width*height) ));
-        checkCudaCall(cudaMalloc((void **) &d_grayImage, width*height));
-        checkCudaCall(cudaMemcpy(d_grayImage, grayImage, width * height, cudaMemcpyHostToDevice));
-        checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*width * height, cudaMemcpyHostToDevice));
+        int ImageSize = width * height;
+        checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*ImageSize) ));
+        checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
+        checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
+        checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*ImageSize, cudaMemcpyHostToDevice));
 
         kernelTime.start();
-        dim3 dimBlock(512, 512);
-        dim3 dimGrid(width/(int)dimBlock.x+1, height/(int)dimBlock.y+1);
-        rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, width, height);
+        dim3 dimBlock(512);
+        dim3 dimGrid(ImageSize/(int)dimBlock.x);
+        rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
         cudaDeviceSynchronize();
         kernelTime.stop();
 
-        checkCudaCall(cudaMemcpy(grayImage, d_grayImage, width * height, cudaMemcpyDeviceToHost));
+        checkCudaCall(cudaMemcpy(grayImage, d_grayImage, ImageSize, cudaMemcpyDeviceToHost));
         checkCudaCall(cudaFree(d_grayImage));
         checkCudaCall(cudaFree(d_inputImage));
 
@@ -111,7 +109,6 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 	cout << fixed << setprecision(6);
 	cout << "rgb2gray (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-/////////////////////////////////////
 
 __global__ void histogram1DCudaKernel(int ImageSize, unsigned int *device_histogram, unsigned char *d_grayImage)
 {
@@ -235,7 +232,8 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
 }
-/////////////////////////////////////
+
+
 __global__ void contrast1DKernel(unsigned char *grayImage, const int width, const int height,int min, int max, int diff, int grayImageSize) 
 {
 
