@@ -381,16 +381,117 @@ void contrast1D(unsigned char *grayImage, const int width, const int height,
 
 /////////////////////////////////////
 /*
-__global__ void triangularSmoothKernel
+ * step 1. parallelize the triagularSmooth function by just adding the keyword __global__ in front of it
+ * step 2. allocate the memory on the GPU and move the data over for the function to execute on
+ * step 3. modify the function call in order to enable it to launch on the GPU
+ */ 
+ 
+ // 1. parallelize the triagularSmooth functionb by just adding the keyword __global__ in front of it
+ // 
+ // This function is called a Kernel: when called it is executed N times in parallel by N different
+ // CUDA threads
+ //
+__global__ void triangularSmoothKernel(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height,
+										const float *filter)
 {
-}
-*/
+	// Each thread that executes the kernel is given a unique thread ID that is accessible within 
+	// the kernel through the built-in threadIdx variable. 
+	// Read more at: http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#ixzz3nMa5Sr53
+	
+	// 'threadIdx' variable is a 3-component vector used to access the unique thread ID given to each 
+	// thread that executes this Kernel
+	// Each thread can be identified using a 1D, 2D or 3D thread index to form 1D, 2D or 3D block of threads
 
-/*
-void triangularSmoothCuda
-{
+	// How many threads does a thread block on our GPU contains? 512 or 1024?
+	
+	// threadIdx:built-in variable used to access/identify a 1D, 2D or 3D thread index (and the thread-ID)
+	// blockIdx: built-in variable used to access/identify a 1D, 2D or 3D block index
+	// blockDim: built-in variable used to access a 1D, 2D or 3D thread dimension
+	//
+	// The total number of threads per block times the number of blocks
+	unsigned int i = blockDim.x * blockIdx.x + threadIdx.x; // read-only variable i
+	unsigned int j = blockDim.y * blockIdx.y + threadIdx.y; // read-only variable j
+	
+	if(i < width && j < height) /* ...??? */
+	{
+		unsigned int filterItem = 0;
+		float filterSum = 0.0f;
+		float smoothPix = 0.0f;
+
+		for ( int fy = j - 2; fy < j + 3; fy++ ) 
+		{
+			for ( int fx = i - 2; fx < i + 3; fx++ ) 
+			{
+				if ( ((fy < 0) || (fy >= height)) || ((fx < 0) || (fx >= width)) ) 
+				{
+					filterItem++;
+					continue;
+				}
+
+				smoothPix += grayImage[(fy * width) + fx] * filter[filterItem];
+				filterSum += filter[filterItem];
+				filterItem++;
+			}
+		}
+
+		smoothPix /= filterSum;
+		smoothImage[(j * width) + i] = static_cast< unsigned char >(smoothPix);
+	}
 }
-*/
+
+void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height,
+							const float *filter)
+{
+	//cudaError_t error;
+	
+	//.....
+	NSTimer kernelTime = NSTimer("kernelTime", false, false);
+	
+	//int threadBlockSize = 512;
+	
+	// 2a. Allocate the memory on the GPU
+	unsigned char *d_grayImage;
+	unsigned char *d_smoothImage;
+	float *d_filter;
+	checkCudaCall(cudaMalloc((void **)&d_grayImage, width * height));
+	checkCudaCall(cudaMalloc((void **)&d_smoothImage, width * height));
+	checkCudaCall(cudaMalloc((void **)&d_filter, sizeof(filter)/sizeof(const float)));
+	
+	// 2b. Move data over (host memory to device memory) for the function to execute
+	// cudaMemcpy(void *dst, void *src, size_t nbytes, enum cudaMemcpyKind direction); 
+	checkCudaCall(cudaMemcpy((void *)d_grayImage, (void *)grayImage, (cudaMemcpyKind)width*height, cudaMemcpyHostToDevice)); 
+	checkCudaCall(cudaMemcpy((void *)d_smoothImage, (void *)smoothImage, (cudaMemcpyKind)width*height, cudaMemcpyHostToDevice));
+	checkCudaCall(cudaMemcpy(d_filter, filter, (cudaMemcpyKind)sizeof(filter)/sizeof(const float), cudaMemcpyHostToDevice));	
+	
+	// 3. Modify the function call in order to enable it to launch on the GPU
+	//dim3 threads(512);
+	//dim3 grid((width * height)/threads.x);
+	//
+	// Kernel invocation with one block of width * height * 1 threads
+	dim3 threadsPerBlock(16, 16);
+	dim3 numberOfBlocks(width/threadsPerBlock.x, height/threadsPerBlock.y);
+	
+	kernelTime.start();
+	//Kernel invocation with N threads that executes it
+	// Kernel
+	//triangularSmoothKernel<<<grid, threads>>>(d_grayImage, d_smoothImage, width, height, d_filter); 
+	triangularSmoothKernel<<<numberOfBlocks, threadsPerBlock>>>(d_grayImage, d_smoothImage, width, height, d_filter); 
+	cudaDeviceSynchronize();	
+	// /Kernel
+	kernelTime.stop();
+	
+	// 4. Move data back over (device memory to host memory)
+    checkCudaCall(cudaMemcpy((void *)grayImage, (void *)d_grayImage, (cudaMemcpyKind)width*height, cudaMemcpyDeviceToHost));
+	checkCudaCall(cudaMemcpy((void *)smoothImage, (void *)d_smoothImage, (cudaMemcpyKind)width*height, cudaMemcpyDeviceToHost));
+	
+	cout << fixed << setprecision(6);
+	cout << "triangularSmooth (cpu): \t" << kernelTime.getElapsed() << " seconds." << endl;
+	
+	// Free up device memory
+	cudaFree(d_grayImage); 
+	cudaFree(d_smoothImage); 
+	cudaFree(d_filter); 
+}
 
 void triangularSmooth(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height,
 					  const float *filter) 

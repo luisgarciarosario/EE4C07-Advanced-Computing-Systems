@@ -34,7 +34,7 @@ extern void contrast1D(unsigned char *grayImage, const int width, const int heig
 extern void contrast1DCuda(unsigned char *grayImage, const int width, const int height, unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, const unsigned int CONTRAST_THRESHOLD);
 
 extern void triangularSmooth(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height, const float *filter);
-//extern void triangularSmoothCuda
+extern void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height, const float *filter);
 
 
 int main(int argc, char *argv[])
@@ -97,8 +97,8 @@ int main(int argc, char *argv[])
 	// Triangular smooth (convolution)
 	CImg< unsigned char > smoothImage = CImg< unsigned char >(grayImage.width(), grayImage.height(), 1, 1);
 
-	triangularSmooth(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
-	//triangularSmoothCuda
+	//triangularSmooth(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
+	triangularSmoothCuda(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
 
 	if ( displayImages ) {
 		smoothImage.display("Smooth Image");
