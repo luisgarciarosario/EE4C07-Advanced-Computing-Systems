@@ -112,10 +112,12 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 
 __global__ void histogram1DCudaKernel(int ImageSize, unsigned int *device_histogram, unsigned char *d_grayImage)
 {
+	// set the pointer to every element in d_grayImage
         unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
         if (index < ImageSize)
         {
                 unsigned char Item = d_grayImage[index];
+                //use atomic operation to solve problem of memory conflict
                 atomicAdd (&(device_histogram[Item]), 1);
         }
 }
@@ -126,20 +128,24 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
                                  unsigned int *histogram, const unsigned int HISTOGRAM_SIZE,
                                  const unsigned int BAR_WIDTH)
 {
+	// set the number of threads in a single block
         dim3 threadBlockSize(512);
         unsigned int max = 0;
         int ImageSize = width * height;
         NSTimer kernelTime = NSTimer("kernelTime", false, false);
 
         memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
+        // copy histogram to device_histogram
         unsigned int* device_histogram = NULL;
         checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int)));
         checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyHostToDevice));
+        // copy grayImage to d_grayImage
         unsigned char* d_grayImage = NULL;
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
 
         kernelTime.start();
+        // set the number of blocks
         dim3 BlockNum(width*height/threadBlockSize.x+1);
         histogram1DCudaKernel<<<BlockNum, threadBlockSize>>>(ImageSize, device_histogram, d_grayImage);
         cudaDeviceSynchronize();
@@ -147,7 +153,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 
         checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyDeviceToHost));
         checkCudaCall(cudaFree(device_histogram));
-
+	// find the largest number in histogram
 	for ( unsigned int i = 0; i < HISTOGRAM_SIZE; i++ )
 	{
 		if ( histogram[i] > max )
