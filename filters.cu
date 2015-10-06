@@ -38,9 +38,9 @@ static void checkCudaCall(cudaError_t result) {
 __global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, int ImageSize)
 {
         unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
-        
+        // thread within a block cooperate via shared memory and block contains thread
 	if(index < ImageSize)
-
+        // defining the change range of index
            {
                       float grayPix = 0.0f;
                       float r = static_cast< float >(d_inputImage[index]);
@@ -48,6 +48,8 @@ __global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d
                       float b = static_cast< float >(d_inputImage[(2 * ImageSize) + index]);
                       grayPix = (0.3f * r) + (0.59f * g) + (0.11f * b);
                       d_grayImage[index] = static_cast< unsigned char >(grayPix);
+       // according to the function of convert image, we define different type variable
+       //static_cast< unsigned char > is the function that change type of data.
         }
    }
 
@@ -61,23 +63,33 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 
         unsigned char* d_grayImage= NULL;
         unsigned char* d_inputImage= NULL;
+        //defined the device image 
         int ImageSize = width * height;
+        //define the size of input image
         checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*ImageSize) ));
+        // GPU memory allocation for input Image. Input Image have red green and blue element so we need to multiply 3 and they need more bigger space.
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
+        // GPU memory allocation for grayImage, the size of grayImage is width*height.
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
+        // transmit the host gray image data to device data d_gray image.
         checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*ImageSize, cudaMemcpyHostToDevice));
+        // transmit the host input image data to device data d_inputimage.
 
         kernelTime.start();
         dim3 dimBlock(512);
+        //assume the number of thread in block is 512
         dim3 dimGrid(ImageSize/(int)dimBlock.x);
         rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
         cudaDeviceSynchronize();
+        // this is parallel calculation in the device(GPU).
         kernelTime.stop();
 
         checkCudaCall(cudaMemcpy(grayImage, d_grayImage, ImageSize, cudaMemcpyDeviceToHost));
+        // transmit the device  gray image data to device gray image data(GPU TO CPU).
         checkCudaCall(cudaFree(d_grayImage));
+        // free the device outcome data.
         checkCudaCall(cudaFree(d_inputImage));
-
+        // free the device input data.
 
         cout << fixed << setprecision(6);
         cout << "rgb2gray (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
