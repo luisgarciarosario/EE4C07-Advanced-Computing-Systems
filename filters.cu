@@ -26,6 +26,8 @@ using std::setprecision;
 */
 
 
+#define BLOCK_MAX_THREADSIZE 512
+
 static void checkCudaCall(cudaError_t result) {
     if (result != cudaSuccess) {
         cerr << "cuda error: " << cudaGetErrorString(result) << endl;
@@ -141,7 +143,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
                                  const unsigned int BAR_WIDTH)
 {
 	// set the number of threads in a single block
-        dim3 threadBlockSize(512);
+        dim3 threadBlockSize(THREADBLOCKSIZE);
         unsigned int max = 0;
         int ImageSize = width * height;
         NSTimer kernelTime = NSTimer("kernelTime", false, false);
@@ -255,43 +257,39 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 __global__ void contrast1DKernel(unsigned char *grayImage, const int width, const int height,int min, int max, int diff, int grayImageSize) 
 {
 
-  unsigned int index  = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int index  = blockIdx.x * blockDim.x + threadIdx.x;
 
- 
-  //ensure we dont use more threads than image size 
-  if(index < grayImageSize)
-   {
+  	//ensure we dont use more threads than image size 
+  	if(index < grayImageSize)
+   	{
 
-   
-	unsigned char pixel = grayImage[index];
+		unsigned char pixel = grayImage[index];
 
-         if ( pixel < min )
-        {
-        	pixel = 0;
-        }
-        else if ( pixel > max )
-        {
-        	pixel = 255;
-        }
-        else
-        {
-        	pixel = static_cast< unsigned char >(255.0f * (pixel - min) / diff);
-        }
+         	if ( pixel < min )
+        	{
+        		pixel = 0;
+        	}
+        	else if ( pixel > max )
+        	{
+        		pixel = 255;
+        	}
+        	else
+        	{
+        		pixel = static_cast< unsigned char >(255.0f * (pixel - min) / diff);
+        	}
                       
-        grayImage[index] =  pixel;
+        	grayImage[index] =  pixel;
    
-   } 
+   	} 
   
 
 }
+
 
 void contrast1DCuda(unsigned char *grayImage, const int width, const int height, 
 				unsigned int *histogram, const unsigned int HISTOGRAM_SIZE, 
 				const unsigned int CONTRAST_THRESHOLD) 
 {
-
-
-      cudaError_t error;
 
 	unsigned int i = 0;
 	NSTimer kernelTime = NSTimer("kernelTime", false, false);
@@ -310,11 +308,9 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	unsigned int max = i;
 	float diff = max - min;
 
-
 	int threadBlockSize = 512;
        	int grayImageSize= width * height;
        
-
        	// Allocate device memory for grayImage
        	unsigned char *d_grayImage;
         checkCudaCall(cudaMalloc((void **)&d_grayImage,grayImageSize));
@@ -323,16 +319,14 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
          checkCudaCall(cudaMemcpy(d_grayImage,grayImage,grayImageSize,cudaMemcpyHostToDevice)); 
 	
         // Setup execution parameters 
-    	dim3 threads(512);
+    	dim3 threads(BLOCK_MAX_THREADSIZE);
     	dim3 grid(grayImageSize/threads.x);
 
-
-	kernelTime.start();
 	// Kernel launch
+	kernelTime.start();
 	contrast1DKernel<<<grid,threads>>>(d_grayImage,width,height,min,max,diff,grayImageSize); 
     	cudaDeviceSynchronize();
 	kernelTime.stop();
-
 
         // Copy result from device to host 
         checkCudaCall(cudaMemcpy(grayImage,d_grayImage,grayImageSize,cudaMemcpyDeviceToHost));
