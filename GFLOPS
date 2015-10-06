@@ -1,0 +1,4 @@
+contrast: 55.5GFLOPS/sec
+rgb2gray: 19.3GFLOPS/sec
+histogram: 0 GFLOPS/sec (use no floating computing in this function)
+triangularSmooth: 41.8GFLOPS/sec
