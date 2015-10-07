@@ -37,12 +37,27 @@ extern void triangularSmooth(unsigned char *grayImage, unsigned char *smoothImag
 extern void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height, const float *filter);
 
 
+//kernel profiling
+double kernelCpuTime [4];
+double kernelGpuTime [4];
+double kernelSpeedUp [4];
+
+//application profiling 
+double totalTimeCpu;
+double totalTimeGpu;
+double overallSpeedUp;
+
+
 int main(int argc, char *argv[])
 {
 	if ( argc != 2 ) {
 		cerr << "Usage: " << argv[0] << " <filename>" << endl;
 		return 1;
 	}
+
+    	NSTimer AppTime = NSTimer("AppTime", false, false);
+    	NSTimer AppTimeGPU = NSTimer("AppTimeGPU", false, false);
+
 
 	// Load the input image
 	CImg< unsigned char > inputImage = CImg< unsigned char >(argv[1]);
@@ -54,17 +69,19 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* CPU Implementation */  
+
+	AppTime.start();
 	// Convert the input image to grayscale
 	CImg< unsigned char > grayImage = CImg< unsigned char >(inputImage.width(), inputImage.height(), 1, 1);
 
-	//rgb2gray(inputImage.data(), grayImage.data(), inputImage.width(), inputImage.height());
-	rgb2grayCuda(inputImage.data(), grayImage.data(), inputImage.width(), inputImage.height());
+	rgb2gray(inputImage.data(), grayImage.data(), inputImage.width(), inputImage.height());
 
 	if ( displayImages ) {
 		grayImage.display("Grayscale Image");
 	}
 	if ( saveAllImages ) {
-		grayImage.save("./grayscale.bmp");
+		grayImage.save("./CPU/grayscale.bmp");
 	}
 
 	// Compute 1D histogram
@@ -72,24 +89,22 @@ int main(int argc, char *argv[])
 	unsigned int *histogram = new unsigned int [HISTOGRAM_SIZE];
 
 	histogram1D(grayImage.data(), histogramImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, BAR_WIDTH);
-	//histogram1DCuda(grayImage.data(), histogramImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, BAR_WIDTH);
 
 	if ( displayImages ) {
 		histogramImage.display("Histogram");
 	}
 	if ( saveAllImages ) {
-		histogramImage.save("./histogram.bmp");
+		histogramImage.save("./CPU/histogram.bmp");
 	}
 
 	// Contrast enhancement
 	contrast1D(grayImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
-	//contrast1DCuda(grayImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
 
 	if ( displayImages ) {
 		grayImage.display("Contrast Enhanced Image");
 	}
 	if ( saveAllImages ) {
-		grayImage.save("./contrast.bmp");
+		grayImage.save("./CPU/contrast.bmp");
 	}
 
 	delete [] histogram;
@@ -97,17 +112,99 @@ int main(int argc, char *argv[])
 	// Triangular smooth (convolution)
 	CImg< unsigned char > smoothImage = CImg< unsigned char >(grayImage.width(), grayImage.height(), 1, 1);
 
-	//triangularSmooth(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
-	triangularSmoothCuda(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
+	triangularSmooth(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
 
 	if ( displayImages ) {
 		smoothImage.display("Smooth Image");
 	}
 
 	if ( saveAllImages ) {
-		smoothImage.save("./smooth.bmp");
+		smoothImage.save("./CPU/smooth.bmp");
 	}
+
+	AppTime.stop();
+	
+	totalTimeCpu=AppTime.getElapsed();
+
+	printf("\n\n");	
+
+	/* GPU Implementation */ 
+
+	AppTimeGPU.start();
+	// Convert the input image to grayscale
+	CImg< unsigned char > grayImageGPU = CImg< unsigned char >(inputImage.width(), inputImage.height(), 1, 1);
+
+	rgb2grayCuda(inputImage.data(), grayImageGPU.data(), inputImage.width(), inputImage.height());
+
+	if ( displayImages ) {
+		grayImageGPU.display("Grayscale Image GPU");
+	}
+	if ( saveAllImages ) {
+		grayImageGPU.save("./GPU/grayscale.bmp");
+	}
+
+	// Compute 1D histogram
+	CImg< unsigned char > histogramImageGPU = CImg< unsigned char >(BAR_WIDTH * HISTOGRAM_SIZE, HISTOGRAM_SIZE, 1, 1);
+	unsigned int *histogramGPU = new unsigned int [HISTOGRAM_SIZE];
+
+	histogram1DCuda(grayImageGPU.data(), histogramImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), histogramGPU, HISTOGRAM_SIZE, BAR_WIDTH);
+
+	if ( displayImages ) {
+		histogramImageGPU.display("Histogram GPU");
+	}
+	if ( saveAllImages ) {
+		histogramImageGPU.save("./GPU/histogram.bmp");
+	}
+
+	// Contrast enhancement
+	contrast1DCuda(grayImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), histogramGPU, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
+
+	if ( displayImages ) {
+		grayImageGPU.display("Contrast Enhanced Image GPU");
+	}
+	if ( saveAllImages ) {
+		grayImageGPU.save("./GPU/contrast.bmp");
+	}
+
+	delete [] histogramGPU;
+
+	// Triangular smooth (convolution)
+	CImg< unsigned char > smoothImageGPU = CImg< unsigned char >(grayImageGPU.width(), grayImageGPU.height(), 1, 1);
+	triangularSmoothCuda(grayImageGPU.data(), smoothImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), filter);
+	
+
+	if ( displayImages ) {
+		smoothImageGPU.display("Smooth Image GPU");
+	}
+
+	if ( saveAllImages ) {
+		smoothImageGPU.save("./GPU/smooth.bmp");
+	}
+
+
+	AppTimeGPU.stop();
+        totalTimeGpu = AppTimeGPU.getElapsed();
+
+
+	//Calculate speed-up for kernels and entire app
+         cout << fixed << setprecision(3);
+	cout<<endl<<endl<<"Evalulating Application"<<endl<<endl;
+	for(int i=0; i<4; i++)
+	{
+         kernelSpeedUp [i]= kernelCpuTime[i]/kernelGpuTime[i] ;
+	}
+	
+       	printf("Speed up RGB2GRAY: x%f \n",kernelSpeedUp[0] );
+       	printf("Speed up Histogram: x%f \n",kernelSpeedUp[1] );
+       	printf("Speed up Contrast: x%f \n",kernelSpeedUp[2] );
+       	printf("Speed up Smooth: x%f \n",kernelSpeedUp[3] );
+
+       	overallSpeedUp = totalTimeCpu/totalTimeGpu ;
+       	printf("CPU time: %f \t GPU Time: %f \n", totalTimeCpu,totalTimeGpu );
+       	printf("Overall Speed up: x%f \n",overallSpeedUp );
 
 	return 0;
 }
+
+
 

@@ -28,6 +28,19 @@ using std::setprecision;
 
 #define BLOCK_MAX_THREADSIZE 512
 
+
+
+//kernel profiling
+extern      double kernelCpuTime [4];
+extern      double kernelGpuTime [4];
+extern     double kernelSpeedUp [4];
+
+//application profiling 
+extern     double AppCpuTime;
+extern    double AppGpuTime;
+extern    double AppSpeedUp;
+
+
 static void checkCudaCall(cudaError_t result) {
     if (result != cudaSuccess) {
         cerr << "cuda error: " << cudaGetErrorString(result) << endl;
@@ -55,8 +68,7 @@ __global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d
         }
    }
 
-
-
+   
 void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height)
 {
 
@@ -95,6 +107,8 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 
         cout << fixed << setprecision(6);
         cout << "rgb2gray (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelGpuTime[0]= kernelTime.getElapsed(); 
+
 }
 
 void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int width, const int height) 
@@ -122,6 +136,7 @@ void rgb2gray(unsigned char *inputImage, unsigned char *grayImage, const int wid
 	
 	cout << fixed << setprecision(6);
 	cout << "rgb2gray (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelCpuTime[0]= kernelTime.getElapsed(); 
 }
 
 __global__ void histogram1DCudaKernel(int ImageSize, unsigned int *device_histogram, unsigned char *d_grayImage)
@@ -143,7 +158,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
                                  const unsigned int BAR_WIDTH)
 {
 	// set the number of threads in a single block
-        dim3 threadBlockSize(THREADBLOCKSIZE);
+        dim3 threadBlockSize(BLOCK_MAX_THREADSIZE);
         unsigned int max = 0;
         int ImageSize = width * height;
         NSTimer kernelTime = NSTimer("kernelTime", false, false);
@@ -198,6 +213,8 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelGpuTime[1]= kernelTime.getElapsed(); 
+
 }
 
 void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const int width, const int height, 
@@ -251,6 +268,7 @@ void histogram1D(unsigned char *grayImage, unsigned char *histogramImage,const i
 	
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelCpuTime[1]= kernelTime.getElapsed(); 
 }
 
 
@@ -308,7 +326,6 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	unsigned int max = i;
 	float diff = max - min;
 
-	int threadBlockSize = 512;
        	int grayImageSize= width * height;
        
        	// Allocate device memory for grayImage
@@ -333,6 +350,7 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	
 	cout << fixed << setprecision(6);
 	cout << "contrast1DCUDA (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelGpuTime[2]= kernelTime.getElapsed(); 
        
         // clean device memory 
         cudaFree(d_grayImage); 
@@ -389,6 +407,7 @@ void contrast1D(unsigned char *grayImage, const int width, const int height,
 	
 	cout << fixed << setprecision(6);
 	cout << "contrast1D (cpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelCpuTime[2]= kernelTime.getElapsed(); 
 }
 
 /////////////////////////////////////
@@ -497,8 +516,9 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	checkCudaCall(cudaMemcpy((void *)smoothImage, (void *)d_smoothImage, (cudaMemcpyKind)width*height, cudaMemcpyDeviceToHost));
 	
 	cout << fixed << setprecision(6);
-	cout << "triangularSmooth (cpu): \t" << kernelTime.getElapsed() << " seconds." << endl;
+	cout << "triangularSmooth (gpu): \t" << kernelTime.getElapsed() << " seconds." << endl;
 	
+	kernelGpuTime[3]= kernelTime.getElapsed(); 
 	// Free up device memory
 	cudaFree(d_grayImage); 
 	cudaFree(d_smoothImage); 
@@ -545,5 +565,6 @@ void triangularSmooth(unsigned char *grayImage, unsigned char *smoothImage, cons
 	
 	cout << fixed << setprecision(6);
 	cout << "triangularSmooth (cpu): \t" << kernelTime.getElapsed() << " seconds." << endl;
+	kernelCpuTime[3]= kernelTime.getElapsed(); 
 }
 
