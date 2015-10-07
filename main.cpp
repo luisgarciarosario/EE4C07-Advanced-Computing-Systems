@@ -47,6 +47,9 @@ double totalTimeCpu;
 double totalTimeGpu;
 double overallSpeedUp;
 
+//fraction of parallelism for each function
+double f [4];
+
 
 int main(int argc, char *argv[])
 {
@@ -57,6 +60,9 @@ int main(int argc, char *argv[])
 
     	NSTimer AppTime = NSTimer("AppTime", false, false);
     	NSTimer AppTimeGPU = NSTimer("AppTimeGPU", false, false);
+
+	//timer to calculate fraction of parallelism
+    	NSTimer f_timer = NSTimer("f", false, false);
 
 
 	// Load the input image
@@ -69,13 +75,20 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	/* CPU Implementation */  
+	/********************
+	* cpu implementation 
+	*********************/  
 
 	AppTime.start();
 	// Convert the input image to grayscale
 	CImg< unsigned char > grayImage = CImg< unsigned char >(inputImage.width(), inputImage.height(), 1, 1);
 
+        f_timer.start();
 	rgb2gray(inputImage.data(), grayImage.data(), inputImage.width(), inputImage.height());
+	f_timer.stop();
+
+	//f[0]=f_timer.getElapsed()/kernelCpuTime[0];
+	f[0]=kernelCpuTime[0]/f_timer.getElapsed();
 
 	if ( displayImages ) {
 		grayImage.display("Grayscale Image");
@@ -83,12 +96,18 @@ int main(int argc, char *argv[])
 	if ( saveAllImages ) {
 		grayImage.save("./CPU/grayscale.bmp");
 	}
+	
 
 	// Compute 1D histogram
 	CImg< unsigned char > histogramImage = CImg< unsigned char >(BAR_WIDTH * HISTOGRAM_SIZE, HISTOGRAM_SIZE, 1, 1);
 	unsigned int *histogram = new unsigned int [HISTOGRAM_SIZE];
 
+	f_timer.start();
 	histogram1D(grayImage.data(), histogramImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, BAR_WIDTH);
+	f_timer.stop();
+
+	//f[1]=f_timer.getElapsed()/kernelCpuTime[1];
+	f[1]=kernelCpuTime[1]/f_timer.getElapsed();
 
 	if ( displayImages ) {
 		histogramImage.display("Histogram");
@@ -96,9 +115,15 @@ int main(int argc, char *argv[])
 	if ( saveAllImages ) {
 		histogramImage.save("./CPU/histogram.bmp");
 	}
+	
 
 	// Contrast enhancement
+	f_timer.start();
 	contrast1D(grayImage.data(), grayImage.width(), grayImage.height(), histogram, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
+	f_timer.stop();
+
+	//f[2]=f_timer.getElapsed()/kernelCpuTime[2];
+	f[2]=kernelCpuTime[2]/f_timer.getElapsed();
 
 	if ( displayImages ) {
 		grayImage.display("Contrast Enhanced Image");
@@ -112,7 +137,12 @@ int main(int argc, char *argv[])
 	// Triangular smooth (convolution)
 	CImg< unsigned char > smoothImage = CImg< unsigned char >(grayImage.width(), grayImage.height(), 1, 1);
 
+	f_timer.start();
 	triangularSmooth(grayImage.data(), smoothImage.data(), grayImage.width(), grayImage.height(), filter);
+	f_timer.stop();
+
+	//f[3]=f_timer.getElapsed()/kernelCpuTime[3];
+	f[3]=kernelCpuTime[3]/f_timer.getElapsed();
 
 	if ( displayImages ) {
 		smoothImage.display("Smooth Image");
@@ -126,9 +156,13 @@ int main(int argc, char *argv[])
 	
 	totalTimeCpu=AppTime.getElapsed();
 
-	printf("\n\n");	
+	printf("\n");	
 
-	/* GPU Implementation */ 
+	
+	/********************
+	* gpu implementation 
+	*********************/  
+	
 
 	AppTimeGPU.start();
 	// Convert the input image to grayscale
@@ -194,14 +228,32 @@ int main(int argc, char *argv[])
          kernelSpeedUp [i]= kernelCpuTime[i]/kernelGpuTime[i] ;
 	}
 	
-       	printf("Speed up RGB2GRAY: x%f \n",kernelSpeedUp[0] );
+       /*
+	printf("Speed up RGB2GRAY: x%f \n",kernelSpeedUp[0] );
        	printf("Speed up Histogram: x%f \n",kernelSpeedUp[1] );
        	printf("Speed up Contrast: x%f \n",kernelSpeedUp[2] );
        	printf("Speed up Smooth: x%f \n",kernelSpeedUp[3] );
 
+	printf("Function \t f \t Speedup\n");
+       	printf("RGB2GRAY: %d\t  x%f \n",(int)(f[0]*100),kernelSpeedUp[0] );
+       	printf("Histogram: %d \t  x%f \n",(int)(f[1]*100),kernelSpeedUp[1] );
+       	printf("Contrast: %d\t x%f \n",(int)(f[2]*100),kernelSpeedUp[2] );
+       	printf("Smooth: %d \t  x%f \n",(int)(f[3]*100),kernelSpeedUp[3] );
+
+	*/
+
+	cout<<"Function"<<"\t"<<"f\%"<<"\t"<<"Speedup"<<endl;
+       	cout<<"RGB2GRAY"<<"\t"<<(int)(f[0]*100)<<"\t"<<kernelSpeedUp[0]<<endl;
+       	cout<<"Histogram"<<"\t"<<(int)(f[1]*100)<<"\t"<<kernelSpeedUp[1]<<endl;
+       	cout<<"Contrast"<<"\t"<<(int)(f[2]*100)<<"\t"<<kernelSpeedUp[2]<<endl;
+       	cout<<"Smooth  "<<"\t"<<(int)(f[3]*100)<<"\t"<<kernelSpeedUp[3]<<endl<<endl;
+
        	overallSpeedUp = totalTimeCpu/totalTimeGpu ;
-       	printf("CPU time: %f \t GPU Time: %f \n", totalTimeCpu,totalTimeGpu );
-       	printf("Overall Speed up: x%f \n",overallSpeedUp );
+    
+ //	printf("CPU time: %f \t GPU Time: %f \n", totalTimeCpu,totalTimeGpu );
+   //    	printf("Overall Speed up: x%f \n",overallSpeedUp );
+
+ 	cout<<"Time (cpu): "<<totalTimeCpu<<" sec \t"<<"Time (gpu): "<<totalTimeGpu<<" sec \t"<<"Overall Speed up: x"<<overallSpeedUp<<endl;
 
 	return 0;
 }
