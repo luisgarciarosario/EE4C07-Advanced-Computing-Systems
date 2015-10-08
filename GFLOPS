@@ -1,3 +1,36 @@
+==10839== NVPROF is profiling process 10839, command: ../../bin/cuda ../../images/image15.jpg
+rgb2gray (gpu): 		0.021381 seconds.
+histogram1D (gpu): 		0.013081 seconds.
+contrast1DCUDA (gpu): 		0.038784 seconds.
+triangularSmooth (gpu): 	0.237260 seconds.
+==10839== Profiling application: ../../bin/cuda ../../images/image15.jpg
+==10839== Profiling result:
+==10839== Metric result:
+Invocations                               Metric Name                        Metric Description         Min         Max         Avg
+Device "GeForce GTX 750 Ti (0)"
+	Kernel: contrast1DKernel(unsigned char*, int, int, int, int, int, int)
+          1                             flop_count_sp  Floating Point Operations(Single Precisi   114407672   114407672   114407672
+          1                         flop_count_sp_add  Floating Point Operations(Single Precisi     7150472     7150472     7150472
+          1                         flop_count_sp_fma  Floating Point Operations(Single Precisi    50053304    50053304    50053304
+          1                         flop_count_sp_mul  Floating Point Operation(Single Precisio     7150592     7150592     7150592
+	Kernel: rgb2grayCudaKernel(unsigned char*, unsigned char*, int)
+          1                             flop_count_sp  Floating Point Operations(Single Precisi    35752960    35752960    35752960
+          1                         flop_count_sp_add  Floating Point Operations(Single Precisi           0           0           0
+          1                         flop_count_sp_fma  Floating Point Operations(Single Precisi    14301184    14301184    14301184
+          1                         flop_count_sp_mul  Floating Point Operation(Single Precisio     7150592     7150592     7150592
+	Kernel: histogram1DCudaKernel(int, unsigned int*, unsigned char*)
+          1                             flop_count_sp  Floating Point Operations(Single Precisi           0           0           0
+          1                         flop_count_sp_add  Floating Point Operations(Single Precisi           0           0           0
+          1                         flop_count_sp_fma  Floating Point Operations(Single Precisi           0           0           0
+          1                         flop_count_sp_mul  Floating Point Operation(Single Precisio           0           0           0
+	Kernel: triangularSmoothKernel(unsigned char*, unsigned char*, int, int, float const *)
+          1                             flop_count_sp  Floating Point Operations(Single Precisi   681784696   681784696   681784696
+          1                         flop_count_sp_add  Floating Point Operations(Single Precisi   198869096   198869096   198869096
+          1                         flop_count_sp_fma  Floating Point Operations(Single Precisi   241457800   241457800   241457800
+          1                         flop_count_sp_mul  Floating Point Operation(Single Precisio           0           0           0
+
+flops_sp = flops_sp_add + flops_sp_mul _ flops_sp_special + (2 * flops_sp_fma)
+
 contrast: 55.5GFLOPS/sec
 rgb2gray: 19.3GFLOPS/sec
 histogram: 0 GFLOPS/sec (use no floating computing in this function)
