@@ -57,6 +57,10 @@ double totalTimeCpu;
 double totalTimeGpu;
 double overallSpeedUp;
 
+//keep track of setup and communication time of gpu
+double time_setup_comm[4];
+
+
 //fraction of parallelism for each function
 double f [4];
 
@@ -279,6 +283,14 @@ int main(int argc, char *argv[])
        	cout<<"Contrast"<<"\t"<<(int)(f[2]*100)<<"\t"<<1/(1-f[2])<<"\t\t"<< kernelOverallSpeedUp[2]<< "\t \t "<<kernelSpeedUp[2]<<endl;
        	cout<<"Smooth  "<<"\t"<<(int)(f[3]*100)<<"\t"<<1/(1-f[3])<<"\t\t"<< kernelOverallSpeedUp[3]<< "\t \t "<<kernelSpeedUp[3]<<endl;
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
+	cout<< "Kernel Analysis (Setup + Communication + kernel)"<<endl; 	
+	cout<<"------------------------"<<endl;
+	cout<<"Function"<<"\t"<<"Total time (sec)"<<"\t"<<"Setup and Communication (sec)"<<"\t"<<" Kernel (sec)"<<endl;
+       	cout<<"RGB2GRAY"<<"\t"<<T_new[0]<<"\t		"<<time_setup_comm[0]<<"\t\t	"<< kernelGpuTime[0]<<endl;
+       	cout<<"Histogram"<<"\t"<<T_new[1]<<"\t\t	"<<time_setup_comm[1]<<"\t\t	"<< kernelGpuTime[1]<<endl;
+       	cout<<"Contrast"<<"\t"<<T_new[2]<<"\t		"<<time_setup_comm[2]<<"\t\t	"<< kernelGpuTime[2]<<endl;
+       	cout<<"Smooth  "<<"\t"<<T_new[3]<<"\t		"<<time_setup_comm[3]<<"\t\t	"<< kernelGpuTime[3]<<endl;
+		
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Application Analysis"<<endl; 	
 	cout<<"------------------------"<<endl;
