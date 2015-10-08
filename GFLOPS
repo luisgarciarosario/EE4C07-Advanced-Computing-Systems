@@ -31,7 +31,7 @@ Device "GeForce GTX 750 Ti (0)"
 
 flops_sp = flops_sp_add + flops_sp_mul _ flops_sp_special + (2 * flops_sp_fma)
 
-contrast: 55.5GFLOPS/sec
-rgb2gray: 19.3GFLOPS/sec
+contrast: 2.95GFLOPS/sec
+rgb2gray: 1.67GFLOPS/sec
 histogram: 0 GFLOPS/sec (use no floating computing in this function)
-triangularSmooth: 41.8GFLOPS/sec
+triangularSmooth: 2.87GFLOPS/sec
