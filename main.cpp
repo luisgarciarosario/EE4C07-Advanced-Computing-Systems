@@ -40,16 +40,16 @@ extern void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smooth
 //kernel profiling
 
 //keep track of just parallelizable part
-double kernelCpuTime [4]; //executime time of on cpu
-double kernelGpuTime [4]; //execution time on gpu, excluding communication
-double kernelSpeedUp [4]; //speedup of parllelizable part, with out communication
+double kernelCpuTime [4]={0,0,0,0}; //executime time of on cpu
+double kernelGpuTime [4]={0,0,0,0}; //execution time on gpu, excluding communication
+double kernelSpeedUp [4]={0,0,0,0}; //speedup of parllelizable part, with out communication
 
 
 
 //keep track of execution time of the entire fuction call
-double T_old [4]; //executime time of on cpu
-double T_new [4]; //execution time on gpu, including communication
-double kernelOverallSpeedUp [4]; //speedup of parllelizable part, with out communication
+double T_old [4]={0,0,0,0}; //executime time of on cpu
+double T_new [4]={0,0,0,0}; //execution time on gpu, including communication
+double kernelOverallSpeedUp [4]={0,0,0,0}; //speedup of parllelizable part, with out communication
 
 
 //application profiling 
@@ -58,11 +58,15 @@ double totalTimeGpu;
 double overallSpeedUp;
 
 //keep track of setup and communication time of gpu
-double time_setup_comm[4];
+double time_total_comm[4]={0,0,0,0};
 
 
 //fraction of parallelism for each function
-double f [4];
+double f [4]={0,0,0,0};
+
+//keep track of setup and communication time of gpu
+//double time_setup_comm[4]={0,0,0,0};
+double time_setup_comm[4];
 
 
 int main(int argc, char *argv[])
@@ -188,18 +192,12 @@ int main(int argc, char *argv[])
 	*********************/  
 
 
-	
-
 	timer_totalTimeGpu.start();
 
 	// Convert the input image to grayscale
 	CImg< unsigned char > grayImageGPU = CImg< unsigned char >(inputImage.width(), inputImage.height(), 1, 1);
 
-	timerA.start();
 	rgb2grayCuda(inputImage.data(), grayImageGPU.data(), inputImage.width(), inputImage.height());
-	timerA.stop();
-	
-	T_new[0]=timerA.getElapsed(); 
 
 	if ( displayImages ) {
 		grayImageGPU.display("Grayscale Image GPU");
@@ -212,11 +210,9 @@ int main(int argc, char *argv[])
 	CImg< unsigned char > histogramImageGPU = CImg< unsigned char >(BAR_WIDTH * HISTOGRAM_SIZE, HISTOGRAM_SIZE, 1, 1);
 	unsigned int *histogramGPU = new unsigned int [HISTOGRAM_SIZE];
 
-	timerA.start();
 	histogram1DCuda(grayImageGPU.data(), histogramImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), histogramGPU, HISTOGRAM_SIZE, BAR_WIDTH);
-	timerA.stop();
 
-	T_new[1]=timerA.getElapsed(); 
+
 	if ( displayImages ) {
 		histogramImageGPU.display("Histogram GPU");
 	}
@@ -225,11 +221,8 @@ int main(int argc, char *argv[])
 	}
 
 	// Contrast enhancement
-	timerA.start();
 	contrast1DCuda(grayImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), histogramGPU, HISTOGRAM_SIZE, CONTRAST_THRESHOLD);
-	timerA.stop();
 
-	T_new[2]=timerA.getElapsed(); 
 
 	if ( displayImages ) {
 		grayImageGPU.display("Contrast Enhanced Image GPU");
@@ -242,12 +235,8 @@ int main(int argc, char *argv[])
 
 	// Triangular smooth (convolution)
 	CImg< unsigned char > smoothImageGPU = CImg< unsigned char >(grayImageGPU.width(), grayImageGPU.height(), 1, 1);
-	timerA.start();
 	triangularSmoothCuda(grayImageGPU.data(), smoothImageGPU.data(), grayImageGPU.width(), grayImageGPU.height(), filter);
-	timerA.stop();
 	
-
-	T_new[3]=timerA.getElapsed(); 
 
 	if ( displayImages ) {
 		smoothImageGPU.display("Smooth Image GPU");
@@ -264,32 +253,34 @@ int main(int argc, char *argv[])
 
 	//Calculate speed-up for kernels and entire app
          cout << fixed << setprecision(3);
-	cout<<endl<<endl<<"Evalulating Application"<<endl<<endl;
+	cout<<endl<<endl<<"Evaluating Application"<<endl<<endl;
 	for(int i=0; i<4; i++)
 	{
          	kernelSpeedUp [i]= kernelCpuTime[i]/kernelGpuTime[i] ;
 		kernelOverallSpeedUp[i] = T_old[i]/T_new[i]; 
 	}
-
+	
        	//calculate overall speed up of application
 	overallSpeedUp = totalTimeCpu/totalTimeGpu ;
+
+	cout << fixed << setprecision(6);
 
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Kernel Analysis (Speedup)"<<endl; 	
 	cout<<"------------------------"<<endl;
-	cout<<"Function"<<"\t"<<"f\%"<<"\t"<<"Upperbound Sp"<<"\t"<<"Overall speedup"<<"\t"<<" Kernel Speedup (no communication time)"<<endl;
-       	cout<<"RGB2GRAY"<<"\t"<<(int)(f[0]*100)<<"\t"<<1/(1-f[0])<<"\t\t"<< kernelOverallSpeedUp[0]<< "\t \t "<<kernelSpeedUp[0]<<endl;
-       	cout<<"Histogram"<<"\t"<<(int)(f[1]*100)<<"\t"<<1/(1-f[1])<<"\t\t"<< kernelOverallSpeedUp[1]<< "\t \t "<<kernelSpeedUp[1]<<endl;
-       	cout<<"Contrast"<<"\t"<<(int)(f[2]*100)<<"\t"<<1/(1-f[2])<<"\t\t"<< kernelOverallSpeedUp[2]<< "\t \t "<<kernelSpeedUp[2]<<endl;
-       	cout<<"Smooth  "<<"\t"<<(int)(f[3]*100)<<"\t"<<1/(1-f[3])<<"\t\t"<< kernelOverallSpeedUp[3]<< "\t \t "<<kernelSpeedUp[3]<<endl;
+	cout<<"Function"<<"\t"<<"f\%"<<"\t"<<"Upperbound Sp"<<"\t"<<"Function overall speedup (comm + kernel)"<<"\t"<<" Kernel Speedup"<<endl;
+       	cout<<"RGB2GRAY"<<"\t"<<(int)(f[0]*100)<<"\t"<<1/(1-f[0])<<"\t\t"<< kernelOverallSpeedUp[0]<< "\t \t  "<<kernelSpeedUp[0]<<endl;
+       	cout<<"Histogram"<<"\t"<<(int)(f[1]*100)<<"\t"<<1/(1-f[1])<<"\t\t"<< kernelOverallSpeedUp[1]<< "\t \t  "<<kernelSpeedUp[1]<<endl;
+       	cout<<"Contrast"<<"\t"<<(int)(f[2]*100)<<"\t"<<1/(1-f[2])<<"\t\t"<< kernelOverallSpeedUp[2]<< "\t \t  "<<kernelSpeedUp[2]<<endl;
+       	cout<<"Smooth  "<<"\t"<<(int)(f[3]*100)<<"\t"<<1/(1-f[3])<<"\t\t"<< kernelOverallSpeedUp[3]<< "\t \t  "<<kernelSpeedUp[3]<<endl;
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
-	cout<< "Kernel Analysis (Setup + Communication + kernel)"<<endl; 	
+	cout<< "Kernel GPU Analysis (Setup + Communication + kernel)"<<endl; 	
 	cout<<"------------------------"<<endl;
-	cout<<"Function"<<"\t"<<"Total time (sec)"<<"\t"<<"Setup and Communication (sec)"<<"\t"<<" Kernel (sec)"<<endl;
-       	cout<<"RGB2GRAY"<<"\t"<<T_new[0]<<"\t		"<<time_setup_comm[0]<<"\t\t	"<< kernelGpuTime[0]<<endl;
-       	cout<<"Histogram"<<"\t"<<T_new[1]<<"\t\t	"<<time_setup_comm[1]<<"\t\t	"<< kernelGpuTime[1]<<endl;
-       	cout<<"Contrast"<<"\t"<<T_new[2]<<"\t		"<<time_setup_comm[2]<<"\t\t	"<< kernelGpuTime[2]<<endl;
-       	cout<<"Smooth  "<<"\t"<<T_new[3]<<"\t		"<<time_setup_comm[3]<<"\t\t	"<< kernelGpuTime[3]<<endl;
+	cout<<"Function"<<"\t"<<"Total time (sec)"<<"\t"<<"Communication (sec)"<<"\t %"<<"\t"<<" Kernel (sec)"<<"\t"<<"% "<<endl;
+       	cout<<"RGB2GRAY"<<"\t"<<T_new[0]<<"\t	"<<time_total_comm[0]<<"\t"<<time_total_comm[0]/T_new[0]*100 <<"\t"<<   kernelGpuTime[0]<<"\t"<<kernelGpuTime[0]/T_new[0]*100 <<endl;
+       	cout<<"Histogram"<<"\t"<<T_new[1]<<"\t\t "<<time_total_comm[1]<<"\t"<<time_total_comm[1]/T_new[1]*100 <<"\t"<< kernelGpuTime[1]<<"\t"<<kernelGpuTime[1]/T_new[1]*100 <<endl;
+       	cout<<"Contrast"<<"\t"<<T_new[2]<<"\t	"<<time_total_comm[2]<<"\t"<<time_total_comm[2]/T_new[2]*100 <<"\t"<< kernelGpuTime[2]<<"\t"<<kernelGpuTime[2]/T_new[2]*100 <<endl;
+       	cout<<"Smooth  "<<"\t"<<T_new[3]<<"\t	"<<time_total_comm[3]<<"\t"<<time_total_comm[3]/T_new[3]*100 <<"\t"<< kernelGpuTime[3]<<"\t"<<kernelGpuTime[3]/T_new[3]*100 <<endl;
 		
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Application Analysis"<<endl; 	

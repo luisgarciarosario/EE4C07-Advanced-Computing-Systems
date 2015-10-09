@@ -44,6 +44,11 @@ extern double AppSpeedUp;
 //keep track of setup and communication time of gpu
 extern double time_setup_comm[4];
 
+//keep track of the total time executing gpu code ( kernel + communication )
+extern double T_new[4];
+
+//keep track of the communication time of the gpu
+extern double time_total_comm[4];
 
 
 static void checkCudaCall(cudaError_t result) {
@@ -77,36 +82,52 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 {
 
         NSTimer kernelTime = NSTimer("kernelTime", false, false);
-        NSTimer timer_setUp_Comm = NSTimer("setUp_Communication_Timee", false, false);
+        NSTimer timer_comm1 = NSTimer("timer_comm1", false, false);
+        NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
+
         memset(reinterpret_cast< void * >(grayImage), 0, width * height * sizeof(unsigned char));
 
         unsigned char* d_grayImage= NULL;
         unsigned char* d_inputImage= NULL;
         int ImageSize = width * height;
 
-	timer_setUp_Comm.start();
+	
         checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*ImageSize) ));
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
+
+	/***********
+	* Communication 
+	************/
+	timer_comm1.start();
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
         checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*ImageSize, cudaMemcpyHostToDevice));
-	timer_setUp_Comm.stop();
+	timer_comm1.stop();
+        //cout << "Communication time 1: \t\t" << timer_comm1.getElapsed() << " seconds." << endl;
+	
+	time_total_comm[0]= timer_comm1.getElapsed();
 
-	time_setup_comm[0]= timer_setUp_Comm.getElapsed();
-
-        kernelTime.start();
+	/***********
+	* Kernel Launch 
+	************/
         dim3 dimBlock(512);
         dim3 dimGrid(ImageSize/(int)dimBlock.x);
+
+        kernelTime.start();
         rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
         cudaDeviceSynchronize();
         kernelTime.stop();
 
 	kernelGpuTime[0]= kernelTime.getElapsed(); 
 
-	timer_setUp_Comm.start();
+	/***********
+	* Communication 
+	************/
+	timer_comm2.start();
         checkCudaCall(cudaMemcpy(grayImage, d_grayImage, ImageSize, cudaMemcpyDeviceToHost));
-	timer_setUp_Comm.stop();
+	timer_comm2.stop();
+        //cout << "Communication time 2: \t\t" << timer_comm2.getElapsed() << " seconds." << endl;
 	
-	time_setup_comm[0] += timer_setUp_Comm.getElapsed();
+	time_total_comm[0] += timer_comm2.getElapsed();
 
         checkCudaCall(cudaFree(d_grayImage));
         checkCudaCall(cudaFree(d_inputImage));
@@ -114,6 +135,9 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 
         cout << fixed << setprecision(6);
         cout << "rgb2gray (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+
+	//calculate total  gpu time 
+	T_new[0] = kernelGpuTime[0] + time_total_comm[0];	
 
 }
 
@@ -167,39 +191,54 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
         dim3 threadBlockSize(BLOCK_MAX_THREADSIZE);
         unsigned int max = 0;
         int ImageSize = width * height;
+
         NSTimer kernelTime = NSTimer("kernelTime", false, false);
-	NSTimer timer_setUp_Comm = NSTimer("setUp_Communication_Timee", false, false);
+        NSTimer timer_comm1 = NSTimer("timer_comm1", false, false);
+        NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
 
 
-        timer_setUp_Comm.start();
+	/***********
+	* Communication 
+	************/
         memset(reinterpret_cast< void * >(histogram), 0, HISTOGRAM_SIZE * sizeof(unsigned int));
         // copy histogram to device_histogram
         unsigned int* device_histogram = NULL;
         checkCudaCall(cudaMalloc((void **) &device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int)));
-        checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyHostToDevice));
+
         // copy grayImage to d_grayImage
         unsigned char* d_grayImage = NULL;
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
+
+	timer_comm1.start();
+        checkCudaCall(cudaMemcpy(device_histogram, histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyHostToDevice));
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
-	timer_setUp_Comm.stop();
+	timer_comm1.stop();
 
-	time_setup_comm[1]= timer_setUp_Comm.getElapsed();
+	time_total_comm[1]= timer_comm1.getElapsed();
 
-        kernelTime.start();
+
+	/***********
+	* Kernel Call 
+	************/
         // set the number of blocks
         dim3 BlockNum(width*height/threadBlockSize.x+1);
+
+        kernelTime.start();
         histogram1DCudaKernel<<<BlockNum, threadBlockSize>>>(ImageSize, device_histogram, d_grayImage);
         cudaDeviceSynchronize();
         kernelTime.stop();
 
-
 	kernelGpuTime[1]= kernelTime.getElapsed(); 
 
-	timer_setUp_Comm.start();
-        checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyDeviceToHost));
-       timer_setUp_Comm.stop();
 
-	time_setup_comm[1] += timer_setUp_Comm.getElapsed();
+	/***********
+	* Communication 
+	************/
+	timer_comm2.start();
+        checkCudaCall(cudaMemcpy(histogram, device_histogram, HISTOGRAM_SIZE* sizeof(unsigned int), cudaMemcpyDeviceToHost));
+       timer_comm2.stop();
+
+	time_total_comm[1] += timer_comm2.getElapsed();
 	
 	 checkCudaCall(cudaFree(device_histogram));
 	// find the largest number in histogram
@@ -233,6 +272,10 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 
 	cout << fixed << setprecision(6);
 	cout << "histogram1D (gpu): \t\t" << kernelTime.getElapsed() << " seconds." << endl;
+
+
+	//calculate total  gpu time 
+	T_new[1] = kernelGpuTime[1] + time_total_comm[1];	
 
 }
 
@@ -331,14 +374,21 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	unsigned int i = 0;
 	NSTimer kernelTime = NSTimer("kernelTime", false, false);
 	NSTimer timer_setUp_Comm = NSTimer("setUp_Communication_Timee", false, false);
+        NSTimer timer_comm1 = NSTimer("timer_comm1", false, false);
+        NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
 
 
+	/* Find 1st index, counting from start to finish, which is not less than contrast_theshold
+	 */
 	while ( (i < HISTOGRAM_SIZE) && (histogram[i] < CONTRAST_THRESHOLD) ) 
 	{
 		i++;
 	}
 	unsigned int min = i;
 
+
+	/* Find 1st index, counting from finish to start, which is not less than contrast_theshold
+	 */
 	i = HISTOGRAM_SIZE - 1;
 	while ( (i > min) && (histogram[i] < CONTRAST_THRESHOLD) ) 
 	{
@@ -348,23 +398,32 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	float diff = max - min;
 
        	int grayImageSize= width * height;
-      
-       timer_setUp_Comm.start();
+     
+
+	/***********
+	* Communication 
+	************/
+	 
        	// Allocate device memory for grayImage
        	unsigned char *d_grayImage;
         checkCudaCall(cudaMalloc((void **)&d_grayImage,grayImageSize));
-       	
+
+	timer_comm1.start();
    	// Copy host memory to device 
          checkCudaCall(cudaMemcpy(d_grayImage,grayImage,grayImageSize,cudaMemcpyHostToDevice)); 
-	
+	timer_comm1.stop();
+
+	time_total_comm[2]= timer_comm1.getElapsed();
+
+
+	/***********
+	* Kernel launch 
+	***********/
+
         // Setup execution parameters 
     	dim3 threads(BLOCK_MAX_THREADSIZE);
     	dim3 grid(grayImageSize/threads.x);
-	timer_setUp_Comm.stop();
 
-	time_setup_comm[2]= timer_setUp_Comm.getElapsed();
-
-	// Kernel launch
 	kernelTime.start();
 	contrast1DKernel<<<grid,threads>>>(d_grayImage,width,height,min,max,diff,grayImageSize); 
     	cudaDeviceSynchronize();
@@ -372,12 +431,16 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 
 	kernelGpuTime[2]= kernelTime.getElapsed(); 
 
-	timer_setUp_Comm.start();
+
+	/***********
+	* Communication 
+	************/
+	timer_comm2.start();
         // Copy result from device to host 
         checkCudaCall(cudaMemcpy(grayImage,d_grayImage,grayImageSize,cudaMemcpyDeviceToHost));
-	timer_setUp_Comm.stop();
+	timer_comm2.stop();
 
-	time_setup_comm[2] += timer_setUp_Comm.getElapsed();
+	time_total_comm[2] += timer_comm2.getElapsed();
 	
 	
 	cout << fixed << setprecision(6);
@@ -387,6 +450,8 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
         cudaFree(d_grayImage); 
 
 
+	//calculate total  gpu time 
+	T_new[2] = kernelGpuTime[2] + time_total_comm[2];	
 }
 
 void contrast1D(unsigned char *grayImage, const int width, const int height, 
@@ -510,6 +575,8 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	//.....
 	NSTimer kernelTime = NSTimer("kernelTime", false, false);
 	NSTimer timer_setUp_Comm = NSTimer("setUp_Communication_Timee", false, false);
+        NSTimer timer_comm1 = NSTimer("timer_comm1", false, false);
+        NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
 
 	
 
@@ -520,19 +587,28 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	unsigned char *d_smoothImage;
 	float *d_filter;
 
-	timer_setUp_Comm.start();
+	/***********
+	* Communication 
+	************/
 	checkCudaCall(cudaMalloc((void **)&d_grayImage, width * height));
 	checkCudaCall(cudaMalloc((void **)&d_smoothImage, width * height));
 	checkCudaCall(cudaMalloc((void **)&d_filter, sizeof(filter)/sizeof(const float)));
 	
+	timer_comm1.start();
 	// 2b. Move data over (host memory to device memory) for the function to execute
 	// cudaMemcpy(void *dst, void *src, size_t nbytes, enum cudaMemcpyKind direction); 
 	checkCudaCall(cudaMemcpy((void *)d_grayImage, (void *)grayImage, (cudaMemcpyKind)width*height, cudaMemcpyHostToDevice)); 
 	checkCudaCall(cudaMemcpy((void *)d_smoothImage, (void *)smoothImage, (cudaMemcpyKind)width*height, cudaMemcpyHostToDevice));
 	checkCudaCall(cudaMemcpy(d_filter, filter, (cudaMemcpyKind)sizeof(filter)/sizeof(const float), cudaMemcpyHostToDevice));	
-         timer_setUp_Comm.stop();
+         timer_comm1.stop();
 
-	time_setup_comm[3]= timer_setUp_Comm.getElapsed();
+	time_total_comm[3]= timer_comm1.getElapsed();
+
+
+	/***********
+	* Kernel Launch  
+	************/
+
 
 	// 3. Modify the function call in order to enable it to launch on the GPU
 	//dim3 threads(512);
@@ -542,9 +618,6 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	dim3 threadsPerBlock(16, 16);
 	dim3 numberOfBlocks(width/threadsPerBlock.x, height/threadsPerBlock.y);
 
-
-
-	
 	kernelTime.start();
 	//Kernel invocation with N threads that executes it
 	// Kernel
@@ -556,13 +629,17 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 
 	kernelGpuTime[3]= kernelTime.getElapsed(); 
 
-	timer_setUp_Comm.start();	
+	
+	/***********
+	* Communication 
+	************/
+	timer_comm2.start();	
 	// 4. Move data back over (device memory to host memory)
     checkCudaCall(cudaMemcpy((void *)grayImage, (void *)d_grayImage, (cudaMemcpyKind)width*height, cudaMemcpyDeviceToHost));
 	checkCudaCall(cudaMemcpy((void *)smoothImage, (void *)d_smoothImage, (cudaMemcpyKind)width*height, cudaMemcpyDeviceToHost));
-	 timer_setUp_Comm.stop();
+	 timer_comm2.stop();
 
-	time_setup_comm[3] += timer_setUp_Comm.getElapsed();
+	time_total_comm[3] += timer_comm2.getElapsed();
 
 	
 	cout << fixed << setprecision(6);
@@ -572,6 +649,9 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	cudaFree(d_grayImage); 
 	cudaFree(d_smoothImage); 
 	cudaFree(d_filter); 
+
+	//calculate total  gpu time 
+	T_new[3] = kernelGpuTime[3] + time_total_comm[3];	
 }
 
 void triangularSmooth(unsigned char *grayImage, unsigned char *smoothImage, const int width, const int height,
