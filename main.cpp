@@ -49,7 +49,7 @@ double kernelSpeedUp [4]={0,0,0,0}; //speedup of parllelizable part, with out co
 //keep track of execution time of the entire fuction call
 double T_old [4]={0,0,0,0}; //executime time of on cpu
 double T_new [4]={0,0,0,0}; //execution time on gpu, including communication
-double kernelOverallSpeedUp [4]={0,0,0,0}; //speedup of parllelizable part, with out communication
+double funcOverallSpeedUp [4]={0,0,0,0}; //speedup of parllelizable part, with out communication
 
 
 //application profiling 
@@ -126,9 +126,6 @@ int main(int argc, char *argv[])
 
 	T_old[1]=timerA.getElapsed(); 
 	
-	//f[1]=timerA.getElapsed()/kernelCpuTime[1];
-	//f[1]=kernelCpuTime[1]/timerA.getElapsed();
-
 	if ( displayImages ) {
 		histogramImage.display("Histogram");
 	}
@@ -143,8 +140,6 @@ int main(int argc, char *argv[])
 	timerA.stop();
 
 	T_old[2]=timerA.getElapsed(); 
-	//f[2]=timerA.getElapsed()/kernelCpuTime[2];
-	//f[2]=kernelCpuTime[2]/timerA.getElapsed();
 
 	if ( displayImages ) {
 		grayImage.display("Contrast Enhanced Image");
@@ -163,8 +158,6 @@ int main(int argc, char *argv[])
 	timerA.stop();
 
 	T_old[3]=timerA.getElapsed(); 
-	//f[3]=timerA.getElapsed()/kernelCpuTime[3];
-	//f[3]=kernelCpuTime[3]/timerA.getElapsed();
 
 	if ( displayImages ) {
 		smoothImage.display("Smooth Image");
@@ -257,7 +250,7 @@ int main(int argc, char *argv[])
 	for(int i=0; i<4; i++)
 	{
          	kernelSpeedUp [i]= kernelCpuTime[i]/kernelGpuTime[i] ;
-		kernelOverallSpeedUp[i] = T_old[i]/T_new[i]; 
+		funcOverallSpeedUp[i] = T_old[i]/T_new[i]; 
 	}
 	
        	//calculate overall speed up of application
@@ -265,22 +258,23 @@ int main(int argc, char *argv[])
 
 	cout << fixed << setprecision(6);
 
+
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
-	cout<< "Kernel Analysis (Speedup)"<<endl; 	
+	cout<< "Kernel Analysis (Speed-up)"<<endl; 	
 	cout<<"------------------------"<<endl;
-	cout<<"Function"<<"\t"<<"f\%"<<"\t"<<"Upperbound Sp"<<"\t"<<"Function overall speedup (comm + kernel)"<<"\t"<<" Kernel Speedup"<<endl;
-       	cout<<"RGB2GRAY"<<"\t"<<(int)(f[0]*100)<<"\t"<<1/(1-f[0])<<"\t\t"<< kernelOverallSpeedUp[0]<< "\t \t  "<<kernelSpeedUp[0]<<endl;
-       	cout<<"Histogram"<<"\t"<<(int)(f[1]*100)<<"\t"<<1/(1-f[1])<<"\t\t"<< kernelOverallSpeedUp[1]<< "\t \t  "<<kernelSpeedUp[1]<<endl;
-       	cout<<"Contrast"<<"\t"<<(int)(f[2]*100)<<"\t"<<1/(1-f[2])<<"\t\t"<< kernelOverallSpeedUp[2]<< "\t \t  "<<kernelSpeedUp[2]<<endl;
-       	cout<<"Smooth  "<<"\t"<<(int)(f[3]*100)<<"\t"<<1/(1-f[3])<<"\t\t"<< kernelOverallSpeedUp[3]<< "\t \t  "<<kernelSpeedUp[3]<<endl;
+	cout<<"Function"<<right<<setw(13)<<"f\%"<<right<<setw(20)<<"Upperbound Sp"<<right<<setw(42)<<"Function overall speedup (comm + kernel)"<<right<<setw(20)<<"Kernel Speedup"<<endl;
+       	cout<<"RGB2GRAY"<<right<<setw(13)<<(int)(f[0]*100)<<right<<setw(17)<<1/(1-f[0])<<right<<setw(14)<< funcOverallSpeedUp[0]<<right<<setw(44)<<kernelSpeedUp[0]<<endl;
+       	cout<<"Histogram"<<right<<setw(12)<<(int)(f[1]*100)<<right<<setw(17)<<1/(1-f[1])<<right<<setw(14)<< funcOverallSpeedUp[1]<<right<<setw(44)<<kernelSpeedUp[1]<<endl;
+       	cout<<"Contrast"<<right<<setw(13)<<(int)(f[2]*100)<<right<<setw(17)<<1/(1-f[2])<<right<<setw(14)<< funcOverallSpeedUp[2]<<right<<setw(44)<<kernelSpeedUp[2]<<endl;
+       	cout<<"Smooth  "<<right<<setw(13)<<(int)(f[3]*100)<<right<<setw(17)<<1/(1-f[3])<<right<<setw(14)<< funcOverallSpeedUp[3]<<right<<setw(44)<<kernelSpeedUp[3]<<endl;
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
-	cout<< "Kernel GPU Analysis (Setup + Communication + kernel)"<<endl; 	
+	cout<< "Kernel GPU Analysis ( Communication + kernel)"<<endl; 	
 	cout<<"------------------------"<<endl;
-	cout<<"Function"<<"\t"<<"Total time (sec)"<<"\t"<<"Communication (sec)"<<"\t %"<<"\t"<<" Kernel (sec)"<<"\t"<<"% "<<endl;
-       	cout<<"RGB2GRAY"<<"\t"<<T_new[0]<<"\t	"<<time_total_comm[0]<<"\t"<<time_total_comm[0]/T_new[0]*100 <<"\t"<<   kernelGpuTime[0]<<"\t"<<kernelGpuTime[0]/T_new[0]*100 <<endl;
-       	cout<<"Histogram"<<"\t"<<T_new[1]<<"\t\t "<<time_total_comm[1]<<"\t"<<time_total_comm[1]/T_new[1]*100 <<"\t"<< kernelGpuTime[1]<<"\t"<<kernelGpuTime[1]/T_new[1]*100 <<endl;
-       	cout<<"Contrast"<<"\t"<<T_new[2]<<"\t	"<<time_total_comm[2]<<"\t"<<time_total_comm[2]/T_new[2]*100 <<"\t"<< kernelGpuTime[2]<<"\t"<<kernelGpuTime[2]/T_new[2]*100 <<endl;
-       	cout<<"Smooth  "<<"\t"<<T_new[3]<<"\t	"<<time_total_comm[3]<<"\t"<<time_total_comm[3]/T_new[3]*100 <<"\t"<< kernelGpuTime[3]<<"\t"<<kernelGpuTime[3]/T_new[3]*100 <<endl;
+	cout<<"Function"<<right<<setw(20)<<"Total time (sec)"<<right<<setw(20)<<"Communication (sec)"<<"\t %"<<"\t"<<" Kernel (sec)"<<"\t"<<"% "<<endl;
+       	cout<<"RGB2GRAY"<<right<<setw(14)<<T_new[0]<<right<<setw(20)<<time_total_comm[0]<<right<<setw(20)<<time_total_comm[0]/T_new[0]*100 <<right<<setw(13)<<   kernelGpuTime[0]<<right<<setw(13)<<kernelGpuTime[0]/T_new[0]*100 <<endl;
+       	cout<<"Histogram"<<right<<setw(13)<<T_new[1]<<right<<setw(20)<<time_total_comm[1]<<right<<setw(20)<<time_total_comm[1]/T_new[1]*100 <<right<<setw(13)<< kernelGpuTime[1]<<right<<setw(13)<<kernelGpuTime[1]/T_new[1]*100 <<endl;
+       	cout<<"Contrast"<<right<<setw(14)<<T_new[2]<<right<<setw(20)<<time_total_comm[2]<<right<<setw(20)<<time_total_comm[2]/T_new[2]*100 <<right<<setw(13)<< kernelGpuTime[2]<<right<<setw(13)<<kernelGpuTime[2]/T_new[2]*100 <<endl;
+       	cout<<"Smooth"<<right<<setw(15)<<T_new[3]<<right<<setw(20)<<time_total_comm[3]<<right<<setw(20)<<time_total_comm[3]/T_new[3]*100 <<right<<setw(13)<< kernelGpuTime[3]<<right<<setw(13)<<kernelGpuTime[3]/T_new[3]*100 <<endl;
 		
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Application Analysis"<<endl; 	
