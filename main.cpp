@@ -68,6 +68,10 @@ double f [4]={0,0,0,0};
 //double time_setup_comm[4]={0,0,0,0};
 double time_setup_comm[4];
 
+//measure effective bandwidth and gflops 
+double bw_effective [4] = {0,0,0,0};
+double gflops_effective [4] = {0,0,0,0};
+
 
 int main(int argc, char *argv[])
 {
@@ -199,6 +203,8 @@ int main(int argc, char *argv[])
 		grayImageGPU.save("./GPU/grayscale.bmp");
 	}
 
+	
+
 	// Compute 1D histogram
 	CImg< unsigned char > histogramImageGPU = CImg< unsigned char >(BAR_WIDTH * HISTOGRAM_SIZE, HISTOGRAM_SIZE, 1, 1);
 	unsigned int *histogramGPU = new unsigned int [HISTOGRAM_SIZE];
@@ -256,6 +262,8 @@ int main(int argc, char *argv[])
        	//calculate overall speed up of application
 	overallSpeedUp = totalTimeCpu/totalTimeGpu ;
 
+	double bw_peak= 86.4;
+
 	cout << fixed << setprecision(6);
 
 
@@ -277,11 +285,18 @@ int main(int argc, char *argv[])
        	cout<<"Smooth"<<right<<setw(15)<<T_new[3]<<right<<setw(20)<<time_total_comm[3]<<right<<setw(20)<<time_total_comm[3]/T_new[3]*100 <<right<<setw(13)<< kernelGpuTime[3]<<right<<setw(13)<<kernelGpuTime[3]/T_new[3]*100 <<endl;
 		
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
+	cout<< "Bandwidth Analysis"<<endl; 	
+	cout<<"------------------------"<<endl;
+	cout<<"Function"<<right<<setw(24)<<"Effective Bandwidth (GB/s)"<<right<<setw(20)<<"% of Peak"<<endl;
+	cout<<"RGB2GRAY"<<right<<setw(24)<<bw_effective[0]<<right<<setw(20)<<bw_effective[0]/bw_peak * 100 <<endl;
+	cout<<"Histogram"<<right<<setw(24)<<bw_effective[1]<<right<<setw(20)<<bw_effective[1]/bw_peak * 100 <<endl;
+	cout<<"Contrast"<<right<<setw(24)<<bw_effective[2]<<right<<setw(20)<<bw_effective[2]/bw_peak * 100 <<endl;
+	cout<<"Smooth"<<right<<setw(24)<<bw_effective[3]<<right<<setw(20)<<bw_effective[3]/bw_peak * 100 <<endl;
+	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Application Analysis"<<endl; 	
 	cout<<"------------------------"<<endl;
  	cout<<"Time (cpu): "<<totalTimeCpu<<" sec \t"<<"Time (gpu): "<<totalTimeGpu<<" sec \t"<<"Overall Speed up: x"<<overallSpeedUp<<endl;
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
-
 
 
 	return 0;

@@ -51,6 +51,12 @@ extern double T_new[4];
 extern double time_total_comm[4];
 
 
+
+//measure effective bandwidth and gflops 
+extern double bw_effective [4];
+extern double gflops_effective [4] ;
+
+
 static void checkCudaCall(cudaError_t result) {
     if (result != cudaSuccess) {
         cerr << "cuda error: " << cudaGetErrorString(result) << endl;
@@ -102,7 +108,6 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         checkCudaCall(cudaMemcpy(d_grayImage, grayImage, ImageSize, cudaMemcpyHostToDevice));
         checkCudaCall(cudaMemcpy(d_inputImage, inputImage, 3*ImageSize, cudaMemcpyHostToDevice));
 	timer_comm1.stop();
-        //cout << "Communication time 1: \t\t" << timer_comm1.getElapsed() << " seconds." << endl;
 	
 	time_total_comm[0]= timer_comm1.getElapsed();
 
@@ -119,13 +124,21 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 
 	kernelGpuTime[0]= kernelTime.getElapsed(); 
 
+
+      	//calculate effective bandwidth and gflops
+	int Br = 3* ImageSize; //number of Bytes read
+	int Bw = 1*ImageSize; // number of Bytes write
+
+        bw_effective[0] = (Br+Bw) / (kernelGpuTime[0] * 1e9);
+
+        //cout << "RGB2GRAY Effective Bandwidth (GB/s):" << bw_effective[0]<<endl;
+
 	/***********
 	* Communication 
 	************/
 	timer_comm2.start();
         checkCudaCall(cudaMemcpy(grayImage, d_grayImage, ImageSize, cudaMemcpyDeviceToHost));
 	timer_comm2.stop();
-        //cout << "Communication time 2: \t\t" << timer_comm2.getElapsed() << " seconds." << endl;
 	
 	time_total_comm[0] += timer_comm2.getElapsed();
 
@@ -230,6 +243,13 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 
 	kernelGpuTime[1]= kernelTime.getElapsed(); 
 
+      	//calculate effective bandwidth and gflops
+	int Br = 1* HISTOGRAM_SIZE* sizeof(unsigned int); //number of Bytes read
+	int Bw = 1*ImageSize; // number of Bytes write
+
+        bw_effective[1] = (Br+Bw) / (kernelGpuTime[1] * 1e9);
+
+       // cout << "Histogram Effective Bandwidth (GB/s):" << bw_effective[1]<<endl;
 
 	/***********
 	* Communication 
@@ -432,6 +452,14 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	kernelGpuTime[2]= kernelTime.getElapsed(); 
 
 
+      	//calculate effective bandwidth and gflops
+	int Br = 1* grayImageSize; //number of Bytes read
+	int Bw = 1*grayImageSize; // number of Bytes write
+
+        bw_effective[2] = (Br+Bw) / (kernelGpuTime[2] * 1e9);
+
+       // cout << "Contrast Effective Bandwidth (GB/s):" << bw_effective[2]<<endl;
+
 	/***********
 	* Communication 
 	************/
@@ -621,7 +649,6 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	kernelTime.start();
 	//Kernel invocation with N threads that executes it
 	// Kernel
-	//triangularSmoothKernel<<<grid, threads>>>(d_grayImage, d_smoothImage, width, height, d_filter); 
 	triangularSmoothKernel<<<numberOfBlocks, threadsPerBlock>>>(d_grayImage, d_smoothImage, width, height, d_filter); 
 	cudaDeviceSynchronize();	
 	// /Kernel
@@ -630,6 +657,14 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
 	kernelGpuTime[3]= kernelTime.getElapsed(); 
 
 	
+      	//calculate effective bandwidth and gflops
+	int Br = 1* width*height + 1*sizeof(filter)/sizeof(const float); //number of Bytes read
+	int Bw = 1*width*height; // number of Bytes write
+
+        bw_effective[3] = (Br+Bw) / (kernelGpuTime[3] * 1e9);
+
+        //cout << "Smooth Effective Bandwidth (GB/s):" << bw_effective[3]<<endl;
+
 	/***********
 	* Communication 
 	************/
