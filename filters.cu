@@ -69,7 +69,7 @@ static void checkCudaCall(cudaError_t result) {
 __global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, int ImageSize)
 {
         unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
-        __shared__ float grayPix[ImageSize], r[ImageSize], b[ImageSize], g[ImageSize];
+        extern __shared__ float grayPix[], r[], b[], g[];
 
 	if(index < ImageSize)
 
@@ -119,7 +119,7 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         dim3 dimGrid(ImageSize/(int)dimBlock.x);
 
         kernelTime.start();
-        rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
+        rgb2grayCudaKernel<<<dimGrid, dimBlock, ImageSize*sizeof(float)>>>(d_inputImage, d_grayImage, ImageSize);
         cudaDeviceSynchronize();
         kernelTime.stop();
 
