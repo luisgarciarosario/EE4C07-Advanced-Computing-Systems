@@ -69,16 +69,17 @@ static void checkCudaCall(cudaError_t result) {
 __global__ void rgb2grayCudaKernel(unsigned char *d_inputImage, unsigned char *d_grayImage, int ImageSize)
 {
         unsigned index = blockIdx.x * blockDim.x + threadIdx.x;
-        
+        __shared__ float grayPix[ImageSize], r[ImageSize], b[ImageSize], g[ImageSize];
+
 	if(index < ImageSize)
 
            {
-                      float grayPix = 0.0f;
-                      float r = static_cast< float >(d_inputImage[index]);
-                      float g = static_cast< float >(d_inputImage[ImageSize + index]);
-                      float b = static_cast< float >(d_inputImage[(2 * ImageSize) + index]);
-                      grayPix = (0.3f * r) + (0.59f * g) + (0.11f * b);
-                      d_grayImage[index] = static_cast< unsigned char >(grayPix);
+                      grayPix[index] = 0.0f;
+                      r[index] = static_cast< float >(d_inputImage[index]);
+                      g[index] = static_cast< float >(d_inputImage[ImageSize + index]);
+                      b[index] = static_cast< float >(d_inputImage[(2 * ImageSize) + index]);
+                      grayPix[index] = (0.3f * r[index]) + (0.59f * g[index]) + (0.11f * b[index]);
+                      d_grayImage[index] = static_cast< unsigned char >(grayPix[index]);
         }
    }
 
