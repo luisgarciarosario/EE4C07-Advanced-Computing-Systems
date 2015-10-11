@@ -1,0 +1,19 @@
+We optimized rbg2gray part by using shared memory. Here is the result. After optimizing, the time of rbg2gray function speed up from 0.001513 seconds to 0.000822 seconds.
+
+nvcc -c filters.cu   -gencode arch=compute_30,code=sm_30   -gencode arch=compute_50,code=sm_50 -gencode arch=compute_50,code=compute_50 -O3 -I"../../include"
+g++ -o ../../bin/cuda main.cpp filters.o ../../src/Timer.cpp -I"../../include"  -L"/opt/cuda/cuda70/lib64" -O3 -g0 -pg -lm -lX11 -lpthread -lrt -lcudart 
+../../bin/cuda ../../images/image15.jpg
+rgb2gray (gpu_optimized): 	0.000822 seconds.
+histogram1D (gpu): 	      	0.016126 seconds.
+contrast1DCUDA (gpu):   		0.002156 seconds.
+triangularSmooth (gpu):   	0.009102 seconds.
+
+nvcc -c filters.cu   -gencode arch=compute_30,code=sm_30   -gencode arch=compute_50,code=sm_50 -gencode arch=compute_50,code=compute_50 -O3 -I"../../include"
+g++ -o ../../bin/cuda main.cpp filters.o ../../src/Timer.cpp -I"../../include"  -L"/opt/cuda/cuda70/lib64" -O3 -g0 -pg -lm -lX11 -lpthread -lrt -lcudart 
+../../bin/cuda ../../images/image15.jpg
+rgb2gray (gpu): 	      	0.001513 seconds.
+histogram1D (gpu): 	    	0.005974 seconds.
+contrast1DCUDA (gpu): 		0.001810 seconds.
+triangularSmooth (gpu): 	0.009494 seconds.
+
+In the previous function, the variables we used have no relationship between each other. After using shared memory, these variables have contiguous addresses. Thus it would speed up because when we read data from memory, the computer would not only feed back the single data, the data around it would also be given.
