@@ -118,7 +118,7 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         dim3 dimGrid(ImageSize/(int)dimBlock.x);
 
         kernelTime.start();
-        rgb2grayCudaKernel<<<dimGrid, dimBlock, ImageSize*sizeof(float)>>>(d_inputImage, d_grayImage, ImageSize);
+        rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
         cudaDeviceSynchronize();
         kernelTime.stop();
 
