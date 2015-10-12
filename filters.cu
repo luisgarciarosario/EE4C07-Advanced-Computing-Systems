@@ -129,8 +129,12 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
       	//calculate effective bandwidth and gflops
 	int Br = 3* ImageSize; //number of Bytes read
 	int Bw = 1*ImageSize; // number of Bytes write
+	int numOps = 8;
+	int numOfThreads= dimGrid.x * dimBlock.x;
 
         bw_effective[0] = (Br+Bw) / (kernelGpuTime[0] * 1e9);
+        //gflops_effective[0] = numOps/ (kernelGpuTime[0] * 1e9);
+        gflops_effective[0] = numOps/ (kernelGpuTime[0] * 1e9) * numOfThreads ;
 
         //cout << "RGB2GRAY Effective Bandwidth (GB/s):" << bw_effective[0]<<endl;
 
@@ -247,8 +251,11 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
       	//calculate effective bandwidth and gflops
 	int Br = 1* HISTOGRAM_SIZE* sizeof(unsigned int); //number of Bytes read
 	int Bw = 1*ImageSize; // number of Bytes write
+	int numOps= 0;
+	int numOfThreads= BlockNum.x * threadBlockSize.x;
 
         bw_effective[1] = (Br+Bw) / (kernelGpuTime[1] * 1e9);
+        gflops_effective[1] = numOps/ (kernelGpuTime[1] * 1e9)* numOfThreads;
 
        // cout << "Histogram Effective Bandwidth (GB/s):" << bw_effective[1]<<endl;
 
@@ -456,8 +463,11 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
       	//calculate effective bandwidth and gflops
 	int Br = 1* grayImageSize; //number of Bytes read
 	int Bw = 1*grayImageSize; // number of Bytes write
+	int numOps= 3;
+	int numOfThreads= grid.x * threads.x;
 
         bw_effective[2] = (Br+Bw) / (kernelGpuTime[2] * 1e9);
+        gflops_effective[2] = numOps/ (kernelGpuTime[2] * 1e9)*numOfThreads;
 
        // cout << "Contrast Effective Bandwidth (GB/s):" << bw_effective[2]<<endl;
 
@@ -661,8 +671,11 @@ void triangularSmoothCuda(unsigned char *grayImage, unsigned char *smoothImage, 
       	//calculate effective bandwidth and gflops
 	int Br = 1* width*height + 1*sizeof(filter)/sizeof(const float); //number of Bytes read
 	int Bw = 1*width*height; // number of Bytes write
+	int numOps = 3 + 6*(5) * (5)  ; 
+	int numOfThreads= threadsPerBlock.x * numberOfBlocks.x + threadsPerBlock.y *numberOfBlocks.y;
 
         bw_effective[3] = (Br+Bw) / (kernelGpuTime[3] * 1e9);
+        gflops_effective[3] = numOps/ (kernelGpuTime[3] * 1e9)*numOfThreads;
 
         //cout << "Smooth Effective Bandwidth (GB/s):" << bw_effective[3]<<endl;
 

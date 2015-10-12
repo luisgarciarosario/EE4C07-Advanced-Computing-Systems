@@ -285,13 +285,13 @@ int main(int argc, char *argv[])
        	cout<<"Smooth"<<right<<setw(15)<<T_new[3]<<right<<setw(20)<<time_total_comm[3]<<right<<setw(20)<<time_total_comm[3]/T_new[3]*100 <<right<<setw(13)<< kernelGpuTime[3]<<right<<setw(13)<<kernelGpuTime[3]/T_new[3]*100 <<endl;
 		
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
-	cout<< "Bandwidth Analysis"<<endl; 	
+	cout<< "Bandwidth & GFLOPS Analysis"<<endl; 	
 	cout<<"------------------------"<<endl;
-	cout<<"Function"<<right<<setw(24)<<"Effective Bandwidth (GB/s)"<<right<<setw(20)<<"% of Peak"<<endl;
-	cout<<"RGB2GRAY"<<right<<setw(24)<<bw_effective[0]<<right<<setw(20)<<bw_effective[0]/bw_peak * 100 <<endl;
-	cout<<"Histogram"<<right<<setw(24)<<bw_effective[1]<<right<<setw(20)<<bw_effective[1]/bw_peak * 100 <<endl;
-	cout<<"Contrast"<<right<<setw(24)<<bw_effective[2]<<right<<setw(20)<<bw_effective[2]/bw_peak * 100 <<endl;
-	cout<<"Smooth"<<right<<setw(24)<<bw_effective[3]<<right<<setw(20)<<bw_effective[3]/bw_peak * 100 <<endl;
+	cout<<"Function"<<right<<setw(24)<<"Effective Bandwidth (GB/s)"<<right<<setw(10)<<"% of Peak"<<right<<setw(20)<<"Effective GFLOPS"<<right<<setw(10)<<"% of Peak"<<endl;
+	cout<<"RGB2GRAY"<<right<<setw(24)<<bw_effective[0]<<right<<setw(10)<<bw_effective[0]/bw_peak * 100 <<right<<setw(20)<<gflops_effective[0]<<right<<setw(20)<<gflops_effective[0]/bw_peak * 100<<endl;
+	cout<<"Histogram"<<right<<setw(24)<<bw_effective[1]<<right<<setw(10)<<bw_effective[1]/bw_peak * 100 <<right<<setw(20)<<gflops_effective[1]<<right<<setw(20)<<gflops_effective[1]/bw_peak * 100<<endl;
+	cout<<"Contrast"<<right<<setw(24)<<bw_effective[2]<<right<<setw(10)<<bw_effective[2]/bw_peak * 100 <<right<<setw(20)<<gflops_effective[2]<<right<<setw(20)<<gflops_effective[2]/bw_peak * 100<<endl;
+	cout<<"Smooth"<<right<<setw(24)<<bw_effective[3]<<right<<setw(10)<<bw_effective[3]/bw_peak * 100  <<right<<setw(20)<<gflops_effective[3]<<right<<setw(20)<<gflops_effective[3]/bw_peak * 100<<endl;
 	cout<<"---------------------------------------------------------------------------------------"<<endl;
 	cout<< "Application Analysis"<<endl; 	
 	cout<<"------------------------"<<endl;
