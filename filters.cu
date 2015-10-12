@@ -509,7 +509,12 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	 
        	// Allocate device memory for grayImage
        	unsigned char *d_grayImage;
-        checkCudaCall(cudaMalloc((void **)&d_grayImage,grayImageSize));
+       
+	//unpinned memory
+	// checkCudaCall(cudaMalloc((void **)&d_grayImage,grayImageSize));
+
+	//pinned memory
+        checkCudaCall(cudaMallocHost((void **)&d_grayImage,grayImageSize));
 
 	timer_comm1.start();
    	// Copy host memory to device 
@@ -524,10 +529,12 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	***********/
 
         // Setup execution parameters 
-    	//dim3 threads(BLOCK_MAX_THREADSIZE);
-    	//dim3 grid(grayImageSize/threads.x);
     	dim3 threads(blockSize);
     	dim3 grid(gridSize);
+
+	//dim3 threads(BLOCK_MAX_THREADSIZE);
+    	//dim3 grid(grayImageSize/threads.x);
+
 
 	kernelTime.start();
 	contrast1DKernel<<<grid,threads>>>(d_grayImage,width,height,min,max,diff,grayImageSize); 
