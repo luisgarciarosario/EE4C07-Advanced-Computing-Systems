@@ -1,7 +1,7 @@
 #include <Timer.hpp>
 #include <iostream>
 #include <iomanip>
- 
+
 using LOFAR::NSTimer;
 using std::cout;
 using std::cerr;
@@ -97,6 +97,16 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         unsigned char* d_inputImage= NULL;
         int ImageSize = width * height;
 
+  	int blockSize;   // The launch configurator returned block size 
+  	int minGridSize; // The minimum grid size needed to achieve the 
+                   // maximum occupancy for a full device launch 
+  	int gridSize;    // The actual grid size needed, based on input size 
+
+  	cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize, 
+                 rgb2grayCudaKernel, 0, 0); 
+  	// Round up according to array size 
+  	gridSize = (ImageSize + blockSize - 1) / blockSize;
+
 	
         checkCudaCall(cudaMalloc( (void **) &d_inputImage, (3*ImageSize) ));
         checkCudaCall(cudaMalloc((void **) &d_grayImage, ImageSize));
@@ -114,8 +124,12 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
 	/***********
 	* Kernel Launch 
 	************/
-        dim3 dimBlock(512);
-        dim3 dimGrid(ImageSize/(int)dimBlock.x);
+	//dim3 dimBlock(512);
+  	//dim3 dimGrid(ImageSize/(int)dimBlock.x);
+
+        dim3 dimBlock(blockSize);
+        dim3 dimGrid(gridSize);
+
 
         kernelTime.start();
         rgb2grayCudaKernel<<<dimGrid, dimBlock>>>(d_inputImage, d_grayImage, ImageSize);
@@ -135,7 +149,26 @@ void rgb2grayCuda(unsigned char *inputImage, unsigned char *grayImage, const int
         //gflops_effective[0] = numOps/ (kernelGpuTime[0] * 1e9);
         gflops_effective[0] = numOps/ (kernelGpuTime[0] * 1e9) * numOfThreads ;
 
-        //cout << "RGB2GRAY Effective Bandwidth (GB/s):" << bw_effective[0]<<endl;
+
+	// calculate theoretical occupancy
+  	int maxActiveBlocks;
+  	cudaOccupancyMaxActiveBlocksPerMultiprocessor( &maxActiveBlocks, 
+                                                 rgb2grayCudaKernel, blockSize, 
+                                                 0);
+
+  	int device;
+  	cudaDeviceProp props;
+  	cudaGetDevice(&device);
+ 	cudaGetDeviceProperties(&props, device);
+
+  	float occupancy = (maxActiveBlocks * blockSize / props.warpSize) / 
+                    	(float)(props.maxThreadsPerMultiProcessor / 
+                            props.warpSize);
+
+  	printf("Launched blocks of size %d. Theoretical occupancy: %f\n", 
+         	blockSize, occupancy);
+
+
 
 	/***********
 	* Communication 
@@ -205,7 +238,7 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
                                  const unsigned int BAR_WIDTH)
 {
 	// set the number of threads in a single block
-        dim3 threadBlockSize(BLOCK_MAX_THREADSIZE);
+        //dim3 threadBlockSize(BLOCK_MAX_THREADSIZE);
         unsigned int max = 0;
         int ImageSize = width * height;
 
@@ -214,6 +247,16 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
         NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
 
 
+  	int blockSize;   // The launch configurator returned block size 
+  	int minGridSize; // The minimum grid size needed to achieve the 
+                   // maximum occupancy for a full device launch 
+  	int gridSize;    // The actual grid size needed, based on input size 
+
+  	cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize, 
+                 histogram1DCudaKernel, 0, 0); 
+  	// Round up according to array size 
+  	gridSize = (ImageSize + blockSize - 1) / blockSize;
+	
 	/***********
 	* Communication 
 	************/
@@ -238,7 +281,10 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
 	* Kernel Call 
 	************/
         // set the number of blocks
-        dim3 BlockNum(width*height/threadBlockSize.x+1);
+        //dim3 BlockNum(width*height/threadBlockSize.x+1);
+        
+        dim3 threadBlockSize(blockSize);
+	dim3 BlockNum(gridSize);
 
         kernelTime.start();
         histogram1DCudaKernel<<<BlockNum, threadBlockSize>>>(ImageSize, device_histogram, d_grayImage);
@@ -257,6 +303,26 @@ void histogram1DCuda(unsigned char *grayImage, unsigned char *histogramImage,con
         gflops_effective[1] = numOps/ (kernelGpuTime[1] * 1e9)* numOfThreads;
 
        // cout << "Histogram Effective Bandwidth (GB/s):" << bw_effective[1]<<endl;
+
+	// calculate theoretical occupancy
+  	int maxActiveBlocks;
+  	cudaOccupancyMaxActiveBlocksPerMultiprocessor( &maxActiveBlocks, 
+                  	histogram1DCudaKernel, blockSize, 
+                                                 0);
+
+  	int device;
+  	cudaDeviceProp props;
+  	cudaGetDevice(&device);
+ 	cudaGetDeviceProperties(&props, device);
+
+  	float occupancy = (maxActiveBlocks * blockSize / props.warpSize) / 
+                    	(float)(props.maxThreadsPerMultiProcessor / 
+                            props.warpSize);
+
+  	printf("Launched blocks of size %d. Theoretical occupancy: %f\n", 
+         	blockSize, occupancy);
+
+
 
 	/***********
 	* Communication 
@@ -405,6 +471,16 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
         NSTimer timer_comm2 = NSTimer("timer_comm2", false, false);
 
 
+  	int blockSize;   // The launch configurator returned block size 
+  	int minGridSize; // The minimum grid size needed to achieve the 
+                   // maximum occupancy for a full device launch 
+  	int gridSize;    // The actual grid size needed, based on input size 
+
+  	cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize, 
+                 contrast1DKernel, 0, 0); 
+  	// Round up according to array size 
+  	gridSize = (width*height + blockSize - 1) / blockSize;
+
 	/* Find 1st index, counting from start to finish, which is not less than contrast_theshold
 	 */
 	while ( (i < HISTOGRAM_SIZE) && (histogram[i] < CONTRAST_THRESHOLD) ) 
@@ -448,8 +524,10 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
 	***********/
 
         // Setup execution parameters 
-    	dim3 threads(BLOCK_MAX_THREADSIZE);
-    	dim3 grid(grayImageSize/threads.x);
+    	//dim3 threads(BLOCK_MAX_THREADSIZE);
+    	//dim3 grid(grayImageSize/threads.x);
+    	dim3 threads(blockSize);
+    	dim3 grid(gridSize);
 
 	kernelTime.start();
 	contrast1DKernel<<<grid,threads>>>(d_grayImage,width,height,min,max,diff,grayImageSize); 
@@ -468,7 +546,25 @@ void contrast1DCuda(unsigned char *grayImage, const int width, const int height,
         bw_effective[2] = (Br+Bw) / (kernelGpuTime[2] * 1e9);
         gflops_effective[2] = numOps/ (kernelGpuTime[2] * 1e9)*numOfThreads;
 
-       // cout << "Contrast Effective Bandwidth (GB/s):" << bw_effective[2]<<endl;
+
+	// calculate theoretical occupancy
+  	int maxActiveBlocks;
+  	cudaOccupancyMaxActiveBlocksPerMultiprocessor( &maxActiveBlocks, 
+                  	contrast1DKernel, blockSize, 
+                                                 0);
+
+  	int device;
+  	cudaDeviceProp props;
+  	cudaGetDevice(&device);
+ 	cudaGetDeviceProperties(&props, device);
+
+  	float occupancy = (maxActiveBlocks * blockSize / props.warpSize) / 
+                    	(float)(props.maxThreadsPerMultiProcessor / 
+                            props.warpSize);
+
+  	printf("Launched blocks of size %d. Theoretical occupancy: %f\n", 
+         	blockSize, occupancy);
+
 
 	/***********
 	* Communication 
