@@ -344,13 +344,13 @@ void CompDend(cellCompParams *cellCompParamsPtr){
     return;
 }
 
-void DendHCurr(struct channelParams *chPrms){
+__device__ void DendHCurr(double *d_v, double *d_prevComp1, double *d_newComp1){
 
-    mod_prec q_inf, tau_q, dq_dt, q_local;
+    double q_inf, tau_q, dq_dt, q_local;
 
     //Get inputs
-    mod_prec prevV_dend = *chPrms->v;
-    mod_prec prevHcurrent_q = *chPrms->prevComp1;
+    double prevV_dend = *d_v;
+    double prevHcurrent_q = *d_prevComp1;
 
     // Update dendritic H current component
     q_inf = 1 /(1 + exp((prevV_dend + 80) / 4));
@@ -358,81 +358,102 @@ void DendHCurr(struct channelParams *chPrms){
     dq_dt = (q_inf - prevHcurrent_q) / tau_q;
     q_local = DELTA * dq_dt + prevHcurrent_q;
     //Put result
-    *chPrms->newComp1 = q_local;
+    *d_newComp1 = q_local;
 
     return;
 }
-void DendCaCurr(struct channelParams *chPrms){
 
-    mod_prec alpha_r, beta_r, r_inf, tau_r, dr_dt, r_local;
+
+__device__ void DendCaCurr(double *d_v, double *d_prevComp1, double *d_newComp1){
+
+    double alpha_r, beta_r, r_inf, tau_r, dr_dt, r_local;
 
     //Get inputs
-    mod_prec prevV_dend = *chPrms->v;
-    mod_prec prevCalcium_r = *chPrms->prevComp1;
+    double prevV_dend = *d_v;
+    double prevCalcium_r = *d_prevComp1;
 
     // Update dendritic high-threshold Ca current component
+    double temp1= prevV_dend+ 8.5;
+    double temp2;
+
     alpha_r = 1.7 / (1 + exp( -(prevV_dend - 5) / 13.9));
-    beta_r = 0.02 * (prevV_dend + 8.5) / (exp((prevV_dend + 8.5) / 5) - 1);
-    r_inf = alpha_r / (alpha_r + beta_r);
-    tau_r = 5 / (alpha_r + beta_r);
+    beta_r = 0.02 * (temp1) / (exp((temp1) / 5) - 1);
+
+    temp2 = alpha_r + beta_r;
+
+    r_inf = alpha_r / (temp2);
+    tau_r = 5 / (temp2);
+
     dr_dt = (r_inf - prevCalcium_r) / tau_r;
     r_local = DELTA * dr_dt + prevCalcium_r;
     //Put result
-    *chPrms->newComp1 = r_local;
+    *d_newComp1 = r_local;
 
     return;
 }
-void DendKCurr(struct channelParams *chPrms){
 
-    mod_prec  alpha_s, beta_s, s_inf, tau_s, ds_dt, s_local;
+
+
+__device__ void DendKCurr(double *d_prevComp1, double *d_prevComp2, double *d_newComp1){
+
+    double  alpha_s, beta_s, s_inf, tau_s, ds_dt, s_local;
 
     //Get inputs
-    mod_prec prevPotassium_s = *chPrms->prevComp1;
-    mod_prec prevCa2Plus = *chPrms->prevComp2;
+    double prevPotassium_s = *d_prevComp1;
+    double prevCa2Plus = *d_prevComp2;
+
+    double temp1; 
 
     // Update dendritic Ca-dependent K current component
     alpha_s = min((0.00002*prevCa2Plus), 0.01);
     beta_s = 0.015;
-    s_inf = alpha_s / (alpha_s + beta_s);
-    tau_s = 1 / (alpha_s + beta_s);
+
+    temp1 =  alpha_r + beta_r;
+
+    s_inf = alpha_s / (temp1);
+    tau_s = 1 / (temp1);
     ds_dt = (s_inf - prevPotassium_s) / tau_s;
     s_local = DELTA * ds_dt + prevPotassium_s;
     //Put result
-    *chPrms->newComp1 = s_local;
+    *d_newComp1 = s_local;
 
     return;
 }
-//Consider merging DendCal into DendKCurr since DendCal's output doesn't go to DendCurrVolt but to DendKCurr
-void DendCal(struct channelParams *chPrms){
 
-    mod_prec  dCa_dt, Ca2Plus_local;
+//Consider merging DendCal into DendKCurr since DendCal's output doesn't go to DendCurrVolt but to DendKCurr
+__device__ void DendCal(double *d_prevComp1, double *d_prevComp2, double *d_newComp1){
+
+    double  dCa_dt, Ca2Plus_local;
 
     //Get inputs
-    mod_prec prevCa2Plus = *chPrms->prevComp1;
-    mod_prec prevI_CaH = *chPrms->prevComp2;
+    double prevCa2Plus = *d_prevComp1;
+    double prevI_CaH = *d_prevComp2;
 
     // update Calcium concentration
     dCa_dt = -3 * prevI_CaH - 0.075 * prevCa2Plus;
     Ca2Plus_local = DELTA * dCa_dt + prevCa2Plus;
     //Put result
-    *chPrms->newComp1 = Ca2Plus_local;//This state value is read in DendKCurr
+    *d_newComp1 = Ca2Plus_local;//This state value is read in DendKCurr
 
     return;
 }
 
-void DendCurrVolt(struct dendCurrVoltPrms *chComps){
+
+__device__ void DendCurrVolt(double d_iC, double *d_iApp, double *d_vDend, double *d_vSoma, 
+                            double *d_q, double *d_r, double *d_s, double *d_newVDend, 
+                            double *d_newI_CaH){
 
     //Loca variables
-    mod_prec I_sd, I_CaH, I_K_Ca, I_ld, I_h, dVd_dt;
+    double I_sd, I_CaH, I_K_Ca, I_ld, I_h, dVd_dt;
 
     //Get inputs
-    mod_prec I_c = chComps->iC;
-    mod_prec I_app = *chComps->iApp;
-    mod_prec prevV_dend = *chComps->vDend;
-    mod_prec prevV_soma = *chComps->vSoma;
-    mod_prec q = *chComps->q;
-    mod_prec r = *chComps->r;
-    mod_prec s = *chComps->s;
+    double I_c = d_iC;
+    double I_app = *d_iApp;
+    double prevV_dend = *d_vDend;
+    double prevV_soma = *d_vSoma;
+    double q = *d_q;
+    double r = *d_r;
+    double s = *d_s;
 
     // DENDRITIC CURRENTS
 
@@ -450,13 +471,14 @@ void DendCurrVolt(struct dendCurrVoltPrms *chComps){
     dVd_dt = (-(I_CaH   + I_sd  + I_ld + I_K_Ca + I_c + I_h) + I_app) / C_M;
 
     //Put result (update V_dend)
-    *chComps->newVDend = DELTA * dVd_dt + prevV_dend;
-    *chComps->newI_CaH = I_CaH;//This is a state value read in DendCal
+    *d_newVDend = DELTA * dVd_dt + prevV_dend;
+    *d_newI_CaH = I_CaH;//This is a state value read in DendCal
     return;
 }
-mod_prec IcNeighbors(mod_prec *neighVdend, mod_prec prevV_dend){
 
-    int i;
+__host__ __device__ double IcNeighbors(double *neighVdend, double prevV_dend){
+
+  /*  int i;
     mod_prec f, V, I_c;
     //printf("Ic[0]= %f\n", neighVdend[0]);
 
@@ -466,9 +488,12 @@ mod_prec IcNeighbors(mod_prec *neighVdend, mod_prec prevV_dend){
         f = 0.8 * exp(-1*pow(V, 2)/100) + 0.2;    // SCHWEIGHOFER 2004 VERSION
         I_c = I_c + (CONDUCTANCE * f * V);
     }
-
+*/
     return I_c;
 }
+
+
+
 
 void CompSoma(cellCompParams *cellCompParamsPtr){
 
@@ -527,6 +552,7 @@ void CompSoma(cellCompParams *cellCompParamsPtr){
 
     return;
 }
+
 void SomaCalcium(struct channelParams *chPrms){
 
     mod_prec k_inf, l_inf, tau_k, tau_l, dk_dt, dl_dt, k_local, l_local;
