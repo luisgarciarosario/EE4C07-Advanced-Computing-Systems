@@ -143,27 +143,30 @@ typedef struct axonCurrVoltPrms{
 }axonCurrVoltPrms;
 
 /*** FUNCTION PROTOTYPES ***/
-void ComputeOneCell(cellCompParams *);
+__global__ void ComputeOneCell(cellCompParams *);
 
 void CompDend(cellCompParams *);
-void DendHCurr(struct channelParams *);
-void DendCaCurr(struct channelParams *);
-void DendKCurr(struct channelParams *);
-void DendCal(struct channelParams *);
-void DendCurrVolt(struct dendCurrVoltPrms *);
-mod_prec IcNeighbors(mod_prec *, mod_prec);
+__device__ void DendHCurr(double *d_v, double *d_prevComp1, double *d_newComp1);
+__device__ void DendCaCurr(double *d_v, double *d_prevComp1, double *d_newComp1);
+__device__ void DendKCurr(double *d_prevComp1, double *d_prevComp2, double *d_newComp1);
+__device__ void DendCal(double *d_prevComp1, double *d_prevComp2, double *d_newComp1);
+__device__ void DendCurrVolt(double d_iC, double *d_iApp, double *d_vDend, double *d_vSoma, 
+                            double *d_q, double *d_r, double *d_s, double *d_newVDend, 
+                            double *d_newI_CaH);
+__host__ __device__ double IcNeighbors(double *neighVdend, double prevV_dend);
 
 void CompSoma(cellCompParams *);
-void SomaCalcium(struct channelParams *);
-void SomaSodium(struct channelParams *);
-void SomaPotassium(struct channelParams *);
-void SomaPotassiumX(struct channelParams *);
-void SomaCurrVolt(struct somaCurrVoltPrms *);
+__device__ void SomaCalcium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2);
+__device__ void SomaSodium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2);
+__device__ void SomaPotassium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2);
+__device__ void SomaPotassiumX(double *d_v, double *prevComp1, double *d_newComp1);
+__device__ void SomaCurrVolt(double *d_g_Cal, double *vDend, double *vSoma, double *vAxon, double *d_k, double *d_l, 
+                             double *d_m, double *d_h, double *d_n, double *d_x_s, double *d_newVSoma );
 
 void CompAxon(cellCompParams *);
-void AxonSodium(channelParams *);
-void AxonPotassium(channelParams *);
-void AxonCurrVolt(axonCurrVoltPrms *);
+__device__ void AxonSodium(double *d_v, double *d_prevComp1, double *d_newComp1, double *d_newComp2);
+__device__ void AxonPotassium(double *d_v, double *d_prevComp1, double *newComp1);
+__device__ void AxonCurrVolt(double *d_vSoma, double *d_vAxon, double *d_m_a, double *d_h_a, double *d_x_a, double *d_newVAxon);
 
 
 void InitState(cellState **);
