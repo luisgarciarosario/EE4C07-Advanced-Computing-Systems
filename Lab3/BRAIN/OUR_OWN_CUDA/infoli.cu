@@ -285,7 +285,7 @@ __global__ void compute_kernel(double *cellStatePtr, double *iApp, double *cellV
 
 }
 
-void ComputeOneCell(cellCompParams *cellCompParamsPtr){
+__global__ void ComputeOneCell(cellCompParams *cellCompParamsPtr){
 
     //The three compartments can be computed concurrently but only across a single sim step
     CompDend(cellCompParamsPtr);
@@ -295,7 +295,8 @@ void ComputeOneCell(cellCompParams *cellCompParamsPtr){
     return;
 }
 
-void CompDend(cellCompParams *cellCompParamsPtr){
+/*
+__device__ void CompDend(cellCompParams *cellCompParamsPtr){
 
     struct channelParams chPrms;
     struct dendCurrVoltPrms chComps;
@@ -343,7 +344,7 @@ void CompDend(cellCompParams *cellCompParamsPtr){
 
     return;
 }
-
+*/
 __device__ void DendHCurr(double *d_v, double *d_prevComp1, double *d_newComp1){
 
     double q_inf, tau_q, dq_dt, q_local;
@@ -496,7 +497,7 @@ __host__ __device__ double IcNeighbors(double *neighVdend, double prevV_dend){
 
 
 void CompSoma(cellCompParams *cellCompParamsPtr){
-
+/*
     struct channelParams chPrms;
     struct somaCurrVoltPrms chComps;
 
@@ -549,18 +550,18 @@ void CompSoma(cellCompParams *cellCompParamsPtr){
     chComps.n = &cellCompParamsPtr->newCellState->soma.Potassium_n;
     chComps.x_s = &cellCompParamsPtr->newCellState->soma.Potassium_x_s;
     SomaCurrVolt(&chComps);
-
+*/
     return;
 }
 
-void SomaCalcium(struct channelParams *chPrms){
+__device__ void SomaCalcium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2){
 
-    mod_prec k_inf, l_inf, tau_k, tau_l, dk_dt, dl_dt, k_local, l_local;
+    double k_inf, l_inf, tau_k, tau_l, dk_dt, dl_dt, k_local, l_local;
 
     //Get inputs
-    mod_prec prevV_soma = *chPrms->v;
-    mod_prec prevCalcium_k = *chPrms->prevComp1;
-    mod_prec prevCalcium_l = *chPrms->prevComp2;
+    double prevV_soma = *d_v;
+    double prevCalcium_k = *d_prevComp1;
+    double prevCalcium_l = *d_prevComp2;
 
     k_inf = (1 / (1 + exp(-1 * (prevV_soma + 61)   / 4.2)));
     l_inf = (1 / (1 + exp((     prevV_soma + 85.5) / 8.5)));
@@ -571,19 +572,20 @@ void SomaCalcium(struct channelParams *chPrms){
     k_local = DELTA * dk_dt + prevCalcium_k;
     l_local = DELTA * dl_dt + prevCalcium_l;
     //Put result
-    *chPrms->newComp1= k_local;
-    *chPrms->newComp2= l_local;
+    *d_newComp1= k_local;
+    *d_newComp2= l_local;
 
     return;
 }
-void SomaSodium(struct channelParams *chPrms){
 
-    mod_prec m_inf, h_inf, tau_h, dh_dt, m_local, h_local;
+__device__ void SomaSodium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2){
+
+    double m_inf, h_inf, tau_h, dh_dt, m_local, h_local;
 
     //Get inputs
-    mod_prec prevV_soma = *chPrms->v;
-    //mod_prec prevSodium_m = *chPrms->prevComp1;
-    mod_prec prevSodium_h = *chPrms->prevComp2;
+    double prevV_soma = *d_v;
+    //mod_prec prevSodium_m = *d_prevComp1;
+    double prevSodium_h = *d_prevComp2;
 
     // RAT THALAMOCORTICAL SODIUM:
     m_inf   = 1 / (1 + (exp((-30 - prevV_soma)/ 5.5)));
@@ -593,19 +595,20 @@ void SomaSodium(struct channelParams *chPrms){
     m_local       = m_inf;
     h_local       = prevSodium_h + DELTA * dh_dt;
     //Put result
-    *chPrms->newComp1 = m_local;
-    *chPrms->newComp2 = h_local;
+    *d_newComp1 = m_local;
+    *d_newComp2 = h_local;
 
     return;
 }
-void SomaPotassium(struct channelParams *chPrms){
 
-    mod_prec n_inf, p_inf, tau_n, tau_p, dn_dt, dp_dt, n_local, p_local;
+__device__ void SomaPotassium(double *d_v, double *prevComp1, double *prevComp2, double *newComp1, double *newComp2){
+
+    double n_inf, p_inf, tau_n, tau_p, dn_dt, dp_dt, n_local, p_local;
 
     //Get inputs
-    mod_prec prevV_soma = *chPrms->v;
-    mod_prec prevPotassium_n = *chPrms->prevComp1;
-    mod_prec prevPotassium_p = *chPrms->prevComp2;
+    double prevV_soma = *d_v;
+    double prevPotassium_n = *d_prevComp1;
+    double prevPotassium_p = *d_prevComp2;
 
     // NEOCORTICAL
     n_inf = 1 / (1 + exp( ( -3 - prevV_soma) /  10));
@@ -617,47 +620,56 @@ void SomaPotassium(struct channelParams *chPrms){
     n_local = DELTA * dn_dt + prevPotassium_n;
     p_local = DELTA * dp_dt + prevPotassium_p;
     //Put result
-    *chPrms->newComp1 = n_local;
-    *chPrms->newComp2 = p_local;
+    *d_newComp1 = n_local;
+    *d_newComp2 = p_local;
 
     return;
 }
-void SomaPotassiumX(struct channelParams *chPrms){
 
-    mod_prec alpha_x_s, beta_x_s, x_inf_s, tau_x_s, dx_dt_s, x_s_local;
+__device__ void SomaPotassiumX(double *d_v, double *prevComp1, double *d_newComp1){
+
+    double alpha_x_s, beta_x_s, x_inf_s, tau_x_s, dx_dt_s, x_s_local;
 
     //Get inputs
-    mod_prec prevV_soma = *chPrms->v;
-    mod_prec prevPotassium_x_s = *chPrms->prevComp1;
+    double prevV_soma = *d_v;
+    double prevPotassium_x_s = *d_prevComp1;
+
+    double temp1;
 
     // Voltage-dependent (fast) potassium
     alpha_x_s = 0.13 * (prevV_soma + 25) / (1 - exp(-(prevV_soma + 25) / 10));
     beta_x_s  = 1.69 * exp(-0.0125 * (prevV_soma + 35));
-    x_inf_s   = alpha_x_s / (alpha_x_s + beta_x_s);
-    tau_x_s   =         1 / (alpha_x_s + beta_x_s);
+
+    temp1 = alpha_x_s + beta_x_s;
+
+    x_inf_s   = alpha_x_s / (temp1);
+    tau_x_s   =         1 / (temp1);
     dx_dt_s   = (x_inf_s - prevPotassium_x_s) / tau_x_s;
     x_s_local       = 0.05 * dx_dt_s + prevPotassium_x_s;
     //Put result
-    *chPrms->newComp1 = x_s_local;
+    *d_newComp1 = x_s_local;
 
     return;
 }
-void SomaCurrVolt(struct somaCurrVoltPrms *chComps){
+
+
+__device__ void SomaCurrVolt(double *d_g_Cal, double *vDend, double *vSoma, double *vAxon, double *d_k, double *d_l, 
+                             double *d_m, double *d_h, double *d_n, double *d_x_s, double *d_newVSoma ){
 
     //Local variables
-    mod_prec I_ds, I_CaL, I_Na_s, I_ls, I_Kdr_s, I_K_s, I_as, dVs_dt;
+    double I_ds, I_CaL, I_Na_s, I_ls, I_Kdr_s, I_K_s, I_as, dVs_dt;
 
     //Get inputs
-    mod_prec g_CaL = *chComps->g_CaL;
-    mod_prec prevV_dend = *chComps->vDend;
-    mod_prec prevV_soma = *chComps->vSoma;
-    mod_prec prevV_axon = *chComps->vAxon;
-    mod_prec k = *chComps->k;
-    mod_prec l = *chComps->l;
-    mod_prec m = *chComps->m;
-    mod_prec h = *chComps->h;
-    mod_prec n = *chComps->n;
-    mod_prec x_s = *chComps->x_s;
+    double g_CaL = *d_g_CaL;
+    double prevV_dend = *d_vDend;
+    double prevV_soma = *d_vSoma;
+    double prevV_axon = *d_vAxon;
+    double k = *d_k;
+    double l = *d_l;
+    double m = *d_m;
+    double h = *d_h;
+    double n = *d_n;
+    double x_s = *d_x_s;
 
     // SOMATIC CURRENTS
 
@@ -677,12 +689,13 @@ void SomaCurrVolt(struct somaCurrVoltPrms *chComps){
     I_as    = (G_INT / (1 - P2)) * (prevV_soma - prevV_axon);
 
     dVs_dt = (-(I_CaL   + I_ds  + I_as + I_Na_s + I_ls   + I_Kdr_s + I_K_s)) / C_M;
-    *chComps->newVSoma = DELTA * dVs_dt + prevV_soma;
+    *d_newVSoma = DELTA * dVs_dt + prevV_soma;
 
     return;
 }
-void CompAxon(cellCompParams *cellCompParamsPtr){
 
+void CompAxon(cellCompParams *cellCompParamsPtr){
+/*
     struct channelParams chPrms;
     struct axonCurrVoltPrms chComps;
 
@@ -712,17 +725,17 @@ void CompAxon(cellCompParams *cellCompParamsPtr){
     chComps.h_a = &cellCompParamsPtr->newCellState->axon.Sodium_h_a;
     chComps.x_a = &cellCompParamsPtr->newCellState->axon.Potassium_x_a;
     AxonCurrVolt(&chComps);
-
+*/
     return;
 }
 
-void AxonSodium(struct channelParams *chPrms){
+__device__ void AxonSodium(double *d_v, double *d_prevComp1, double *d_newComp1, double *d_newComp2){
 
-    mod_prec m_inf_a, h_inf_a, tau_h_a, dh_dt_a, m_a_local, h_a_local;
+    double m_inf_a, h_inf_a, tau_h_a, dh_dt_a, m_a_local, h_a_local;
 
     //Get inputs
-    mod_prec prevV_axon = *chPrms->v;
-    mod_prec prevSodium_h_a = *chPrms->prevComp1;
+    double prevV_axon = *d_v;
+    double prevSodium_h_a = *d_prevComp1;
 
     // Update axonal Na components
     // NOTE: current has shortened inactivation to account for high
@@ -734,42 +747,48 @@ void AxonSodium(struct channelParams *chPrms){
     m_a_local = m_inf_a;
     h_a_local = prevSodium_h_a + DELTA * dh_dt_a;
     //Put result
-    *chPrms->newComp1 = h_a_local;
-    *chPrms->newComp2 = m_a_local;
+    *d_newComp1 = h_a_local;
+    *d_newComp2 = m_a_local;
 
     return;
 }
-void AxonPotassium(struct channelParams *chPrms){
 
-    mod_prec alpha_x_a, beta_x_a, x_inf_a, tau_x_a, dx_dt_a, x_a_local;
+__device__ void AxonPotassium(double *d_v, double *d_prevComp1, double *newComp1){
+
+    double alpha_x_a, beta_x_a, x_inf_a, tau_x_a, dx_dt_a, x_a_local;
 
     //Get inputs
-    mod_prec prevV_axon = *chPrms->v;
-    mod_prec prevPotassium_x_a = *chPrms->prevComp1;
+    double prevV_axon = *d_v;
+    double prevPotassium_x_a = *d_prevComp1;
+
+    double temp1;
 
     // D'ANGELO 2001 -- Voltage-dependent potassium
     alpha_x_a = 0.13 * (prevV_axon + 25) / (1 - exp(-(prevV_axon + 25) / 10));
     beta_x_a  = 1.69 * exp(-0.0125 * (prevV_axon + 35));
-    x_inf_a   = alpha_x_a / (alpha_x_a + beta_x_a);
-    tau_x_a   =         1 / (alpha_x_a + beta_x_a);
+    
+    temp1 = alpha_x_a + beta_x_a;
+
+    x_inf_a   = alpha_x_a / (temp1);
+    tau_x_a   =         1 / (temp1;
     dx_dt_a   = (x_inf_a - prevPotassium_x_a) / tau_x_a;
     x_a_local = 0.05 * dx_dt_a + prevPotassium_x_a;
     //Put result
-    *chPrms->newComp1 = x_a_local;
+    *d_newComp1 = x_a_local;
 
     return;
 }
-void AxonCurrVolt(struct axonCurrVoltPrms *chComps){
+void AxonCurrVolt(double *d_vSoma, double *d_vAxon, double *d_m_a, double *d_h_a, double *d_x_a, double *d_newVAxon){
 
     //Local variable
-    mod_prec I_Na_a, I_la, I_sa, I_K_a, dVa_dt;
+    double I_Na_a, I_la, I_sa, I_K_a, dVa_dt;
 
     //Get inputs
-    mod_prec prevV_soma = *chComps->vSoma;
-    mod_prec prevV_axon = *chComps->vAxon;
-    mod_prec m_a = *chComps->m_a;
-    mod_prec h_a = *chComps->h_a;
-    mod_prec x_a = *chComps->x_a;
+    double prevV_soma = *d_vSoma;
+    double prevV_axon = *d_vAxon;
+    double m_a = *d_m_a;
+    double h_a = *d_h_a;
+    double x_a = *d_x_a;
 
     // AXONAL CURRENTS
     // Sodium
@@ -781,10 +800,11 @@ void AxonCurrVolt(struct axonCurrVoltPrms *chComps){
     // Potassium (transient)
     I_K_a   = G_K_A * pow(x_a, 4) * (prevV_axon - V_K);
     dVa_dt = (-(I_K_a + I_sa + I_la + I_Na_a)) / C_M;
-    *chComps->newVAxon = DELTA * dVa_dt + prevV_axon;
+    *d_newVAxon = DELTA * dVa_dt + prevV_axon;
 
     return;
 }
+
 void InitState(cellState **cellStatePtr){
     int j, k;
     cellState initState;
